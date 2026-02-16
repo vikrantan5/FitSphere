@@ -45,7 +45,7 @@ importlib-metadata==8.5.0
 iniconfig==2.0.0
 isort==5.13.2
 Jinja2==3.1.4
-jiter==0.6.1
+# jiter==0.6.1
 jmespath==1.0.1
 jq==1.7.0
 jsonschema==4.23.0
