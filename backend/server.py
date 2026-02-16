@@ -23,6 +23,16 @@ db = client[os.environ['DB_NAME']]
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
+
+
+from fastapi import Response
+
+@app.api_route("/", methods=["GET", "HEAD"])
+def health():
+    return {"status": "running"}
+
+
+
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
