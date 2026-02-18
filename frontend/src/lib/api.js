@@ -14,7 +14,7 @@ const api = axios.create({
 // Add auth token to requests
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('admin_token');
+    const token = localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -87,6 +87,18 @@ export const analyticsAPI = {
 export const notificationAPI = {
   getAll: (params) => api.get('/notifications', { params }),
   markRead: (id) => api.put(`/notifications/${id}/read`),
+};
+
+// Chat APIs
+export const chatAPI = {
+  getMessages: (params) => api.get('/chat/messages', { params }),
+  markRead: (messageId) => api.put(`/chat/messages/${messageId}/read`),
+};
+
+// Testimonial APIs
+export const testimonialAPI = {
+  create: (data) => api.post('/testimonials', data),
+  getAll: (params) => api.get('/testimonials', { params }),
 };
 
 export default api;

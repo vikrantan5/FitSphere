@@ -292,7 +292,7 @@ export default function LoginPage() {
                 {loading ? 'Signing In...' : 'Sign In as Admin'}
               </Button>
               <div className="mt-4 text-center text-xs text-[#5a5a5a]">
-                <p>Default Admin: admin@fitsphere.com / Admin@123</p>
+                <p>Test Admin: admin@fitsphere.com / Admin@123</p>
               </div>
             </form>
           </TabsContent>

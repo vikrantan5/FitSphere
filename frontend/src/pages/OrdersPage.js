@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { orderAPI } from '../lib/api';
 import Layout from '../components/Layout';
-import { Download, Eye } from 'lucide-react';
+import { Download, Eye, X, Package } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function OrdersPage() {
@@ -18,6 +18,7 @@ export default function OrdersPage() {
       const response = await orderAPI.getAll();
       setOrders(response.data);
     } catch (error) {
+      console.error('Load orders error:', error);
       toast.error('Failed to load orders');
     } finally {
       setLoading(false);
@@ -31,6 +32,7 @@ export default function OrdersPage() {
       loadOrders();
       setSelectedOrder(null);
     } catch (error) {
+      console.error('Update status error:', error);
       toast.error('Failed to update status');
     }
   };
@@ -46,29 +48,30 @@ export default function OrdersPage() {
       link.click();
       toast.success('Orders exported successfully');
     } catch (error) {
+      console.error('Export error:', error);
       toast.error('Failed to export orders');
     }
   };
 
   const getStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      processing: 'bg-blue-100 text-blue-700',
-      shipped: 'bg-purple-100 text-purple-700',
-      delivered: 'bg-green-100 text-green-700',
-      cancelled: 'bg-red-100 text-red-700',
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700';
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   const getPaymentStatusColor = (status) => {
     const colors = {
-      pending: 'bg-yellow-100 text-yellow-700',
-      success: 'bg-green-100 text-green-700',
-      failed: 'bg-red-100 text-red-700',
-      refunded: 'bg-gray-100 text-gray-700',
+      pending: 'bg-yellow-100 text-yellow-800',
+      success: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800',
+      refunded: 'bg-gray-100 text-gray-800',
     };
-    return colors[status] || 'bg-gray-100 text-gray-700';
+    return colors[status] || 'bg-gray-100 text-gray-800';
   };
 
   return (
@@ -76,13 +79,13 @@ export default function OrdersPage() {
       <div className="space-y-6" data-testid="orders-page">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Orders</h1>
-            <p className="text-gray-600 mt-1">Manage customer orders</p>
+            <h1 className="text-4xl font-normal text-[#0f5132]" style={{fontFamily: 'Tenor Sans, serif'}}>Orders</h1>
+            <p className="text-[#5a5a5a] mt-1">Manage customer orders</p>
           </div>
           <button
             onClick={exportToCSV}
             data-testid="export-csv-button"
-            className="bg-green-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-green-700 transition-all"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:opacity-90 transition-all uppercase tracking-wider text-sm font-semibold shadow-lg"
           >
             <Download size={20} />
             Export CSV
@@ -90,95 +93,98 @@ export default function OrdersPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">Loading orders...</div>
+          <div className="text-center py-12 text-[#5a5a5a]">Loading orders...</div>
         ) : (
-          <div className="bg-white rounded-xl shadow-md overflow-hidden">
-            <table className="w-full">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Order ID
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Customer
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Amount
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Payment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {orders.map((order) => (
-                  <tr key={order.id} data-testid={`order-row-${order.id}`}>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-mono text-gray-600">
-                        {order.id.substring(0, 8)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div>
-                        <div className="text-sm font-medium text-gray-800">
-                          {order.customer_name}
-                        </div>
-                        <div className="text-sm text-gray-500">{order.customer_email}</div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm font-semibold text-gray-800">
-                        ₹{order.total_amount.toFixed(2)}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
-                          order.order_status
-                        )}`}
-                      >
-                        {order.order_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full ${getPaymentStatusColor(
-                          order.payment_status
-                        )}`}
-                      >
-                        {order.payment_status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-sm text-gray-600">
-                        {new Date(order.created_at).toLocaleDateString()}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button
-                        onClick={() => setSelectedOrder(order)}
-                        data-testid={`view-order-${order.id}`}
-                        className="text-purple-600 hover:text-purple-800"
-                      >
-                        <Eye size={18} />
-                      </button>
-                    </td>
+          <div className="bg-white rounded-none shadow-md overflow-hidden border border-stone-100">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-[#fdfbf7] border-b border-stone-200">
+                  <tr>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Order ID
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Customer
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Payment
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-[#5a5a5a] uppercase tracking-wider">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-stone-200">
+                  {orders.map((order) => (
+                    <tr key={order.id} data-testid={`order-row-${order.id}`} className="hover:bg-[#fdfbf7] transition-colors">
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-mono text-[#5a5a5a]">
+                          {order.id.substring(0, 8)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div>
+                          <div className="text-sm font-medium text-[#1a1a1a]">
+                            {order.customer_name}
+                          </div>
+                          <div className="text-sm text-[#5a5a5a]">{order.customer_email}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-bold text-[#1a1a1a]">
+                          ₹{order.total_amount.toFixed(2)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 text-xs rounded-full uppercase tracking-wider font-semibold ${getStatusColor(
+                            order.order_status
+                          )}`}
+                        >
+                          {order.order_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`px-3 py-1 text-xs rounded-full uppercase tracking-wider font-semibold ${getPaymentStatusColor(
+                            order.payment_status
+                          )}`}
+                        >
+                          {order.payment_status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-sm text-[#5a5a5a]">
+                          {new Date(order.created_at).toLocaleDateString()}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => setSelectedOrder(order)}
+                          data-testid={`view-order-${order.id}`}
+                          className="text-[#0f5132] hover:text-[#ff7f50] transition-colors"
+                        >
+                          <Eye size={18} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
             {orders.length === 0 && (
               <div className="text-center py-12">
-                <p className="text-gray-500">No orders found</p>
+                <Package className="w-12 h-12 mx-auto mb-4 text-[#5a5a5a] opacity-50" />
+                <p className="text-[#5a5a5a]">No orders found</p>
               </div>
             )}
           </div>
@@ -188,65 +194,70 @@ export default function OrdersPage() {
       {/* Order Details Modal */}
       {selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-2xl font-bold mb-4">Order Details</h2>
+          <div className="bg-white rounded-none max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-stone-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-normal text-[#0f5132]" style={{fontFamily: 'Tenor Sans, serif'}}>Order Details</h2>
+              <button onClick={() => setSelectedOrder(null)} className="text-[#5a5a5a] hover:text-[#1a1a1a]">
+                <X size={24} />
+              </button>
+            </div>
             
-            <div className="space-y-4">
+            <div className="space-y-6">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-sm text-gray-500">Order ID</p>
-                  <p className="font-mono text-sm">{selectedOrder.id}</p>
+                  <p className="text-xs text-[#5a5a5a] uppercase tracking-wider">Order ID</p>
+                  <p className="font-mono text-sm mt-1">{selectedOrder.id}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Date</p>
-                  <p className="text-sm">
+                  <p className="text-xs text-[#5a5a5a] uppercase tracking-wider">Date</p>
+                  <p className="text-sm mt-1">
                     {new Date(selectedOrder.created_at).toLocaleString()}
                   </p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500">Customer Information</p>
-                <div className="mt-1">
+                <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Customer Information</p>
+                <div className="bg-[#fdfbf7] p-4 border border-stone-200">
                   <p className="font-medium">{selectedOrder.customer_name}</p>
-                  <p className="text-sm text-gray-600">{selectedOrder.customer_email}</p>
-                  <p className="text-sm text-gray-600">{selectedOrder.customer_phone}</p>
+                  <p className="text-sm text-[#5a5a5a] mt-1">{selectedOrder.customer_email}</p>
+                  <p className="text-sm text-[#5a5a5a]">{selectedOrder.customer_phone}</p>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500">Shipping Address</p>
-                <p className="text-sm mt-1">{selectedOrder.shipping_address}</p>
+                <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Shipping Address</p>
+                <p className="text-sm bg-[#fdfbf7] p-4 border border-stone-200">{selectedOrder.shipping_address}</p>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500 mb-2">Order Items</p>
-                <div className="border rounded-lg divide-y">
+                <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Order Items</p>
+                <div className="border border-stone-200 divide-y">
                   {selectedOrder.items.map((item, index) => (
-                    <div key={index} className="p-3 flex justify-between">
+                    <div key={index} className="p-4 flex justify-between hover:bg-[#fdfbf7] transition-colors">
                       <div>
                         <p className="font-medium">{item.product_name}</p>
-                        <p className="text-sm text-gray-600">Quantity: {item.quantity}</p>
+                        <p className="text-sm text-[#5a5a5a]">Quantity: {item.quantity}</p>
                       </div>
-                      <p className="font-semibold">₹{item.price.toFixed(2)}</p>
+                      <p className="font-bold text-[#0f5132]">₹{item.price.toFixed(2)}</p>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <div className="flex justify-between text-lg font-bold">
-                  <span>Total Amount</span>
-                  <span>₹{selectedOrder.total_amount.toFixed(2)}</span>
+              <div className="border-t border-stone-200 pt-4">
+                <div className="flex justify-between text-lg">
+                  <span className="font-normal" style={{fontFamily: 'Tenor Sans, serif'}}>Total Amount</span>
+                  <span className="font-bold text-[#ff7f50]">₹{selectedOrder.total_amount.toFixed(2)}</span>
                 </div>
               </div>
 
               <div>
-                <p className="text-sm text-gray-500 mb-2">Update Order Status</p>
+                <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Update Order Status</p>
                 <select
                   value={selectedOrder.order_status}
                   onChange={(e) => updateStatus(selectedOrder.id, e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                 >
                   <option value="pending">Pending</option>
                   <option value="processing">Processing</option>
@@ -258,7 +269,7 @@ export default function OrdersPage() {
 
               <button
                 onClick={() => setSelectedOrder(null)}
-                className="w-full bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                className="w-full bg-[#0f5132] text-white py-3 rounded-full hover:opacity-90 transition-all uppercase tracking-wider font-semibold"
               >
                 Close
               </button>

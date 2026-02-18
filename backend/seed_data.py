@@ -18,33 +18,41 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 async def seed_database():
     print("Starting database seeding...")
     
+    # Clear existing data
     await db.users.delete_many({})
+    await db.admins.delete_many({})
     await db.programs.delete_many({})
     await db.products.delete_many({})
     await db.testimonials.delete_many({})
     await db.bookings.delete_many({})
     
+    # Create Admin in admins collection
     admin_user = {
         "id": "admin-001",
         "email": "admin@fitsphere.com",
         "name": "Admin User",
         "role": "admin",
-        "password": pwd_context.hash("admin123"),
-        "created_at": "2026-01-15T10:00:00Z"
+        "password_hash": pwd_context.hash("Admin@123"),
+        "created_at": "2026-01-15T10:00:00Z",
+        "is_active": True,
+        "last_login": None
     }
-    await db.users.insert_one(admin_user)
-    print("✓ Admin user created (admin@fitsphere.com / admin123)")
+    await db.admins.insert_one(admin_user)
+    print("✓ Admin created (admin@fitsphere.com / Admin@123)")
     
+    # Create test user in users collection
     member_user = {
-        "id": "member-001",
-        "email": "member@fitsphere.com",
+        "id": "user-001",
+        "email": "user@fitsphere.com",
         "name": "Sarah Johnson",
-        "role": "member",
-        "password": pwd_context.hash("member123"),
-        "created_at": "2026-01-10T10:00:00Z"
+        "role": "user",
+        "password_hash": pwd_context.hash("User@123"),
+        "phone": "+91 98765 43210",
+        "created_at": "2026-01-10T10:00:00Z",
+        "is_active": True
     }
     await db.users.insert_one(member_user)
-    print("✓ Member user created (member@fitsphere.com / member123)")
+    print("✓ User created (user@fitsphere.com / User@123)")
     
     programs = [
         {
@@ -214,9 +222,18 @@ async def seed_database():
     print(f"✓ {len(testimonials)} testimonials created")
     
     print("\n✅ Database seeded successfully!")
-    print("\nTest Credentials:")
-    print("Admin: admin@fitsphere.com / admin123")
-    print("Member: member@fitsphere.com / member123")
+    print("\n" + "="*50)
+    print("TEST CREDENTIALS:")
+    print("="*50)
+    print("ADMIN LOGIN:")
+    print("  Email: admin@fitsphere.com")
+    print("  Password: Admin@123")
+    print("  ID: admin-001")
+    print("\nUSER LOGIN:")
+    print("  Email: user@fitsphere.com")
+    print("  Password: User@123")
+    print("  ID: user-001")
+    print("="*50)
 
 if __name__ == "__main__":
     asyncio.run(seed_database())
