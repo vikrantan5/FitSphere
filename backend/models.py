@@ -66,6 +66,24 @@ class AdminCreate(BaseModel):
     name: str
     role: UserRole = UserRole.ADMIN
 
+class UserRegisterRequest(BaseModel):
+    email: EmailStr
+    password: str
+    name: str
+    phone: Optional[str] = None
+
+class UserLoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+class UserLoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user_id: str
+    email: str
+    name: str
+    role: str
+
 class Admin(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))

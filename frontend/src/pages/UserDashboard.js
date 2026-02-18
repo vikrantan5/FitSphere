@@ -28,7 +28,7 @@ export default function UserDashboard() {
   const fetchUser = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`${API}/auth/me`, {
+      const response = await axios.get(`${API}/auth/user/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setUser(response.data);
@@ -37,6 +37,7 @@ export default function UserDashboard() {
       toast.error('Session expired. Please login again.');
       localStorage.removeItem('token');
       localStorage.removeItem('user');
+      localStorage.removeItem('userRole');
       navigate('/login');
     }
   };
@@ -44,20 +45,21 @@ export default function UserDashboard() {
   const fetchBookings = async () => {
     const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`${API}/bookings`, {
+      const response = await axios.get(`${API}/orders/user/my-orders`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBookings(response.data);
     } catch (error) {
-      console.error('Error fetching bookings:', error);
+      console.error('Error fetching orders:', error);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
     toast.success('Logged out successfully');
-    navigate('/');
+    navigate('/login');
   };
 
   const getStatusColor = (status) => {
@@ -65,11 +67,17 @@ export default function UserDashboard() {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800';
       case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'completed':
+      case 'processing':
         return 'bg-blue-100 text-blue-800';
+      case 'completed':
+      case 'success':
+      case 'delivered':
+        return 'bg-green-100 text-green-800';
       case 'cancelled':
+      case 'failed':
         return 'bg-red-100 text-red-800';
+      case 'shipped':
+        return 'bg-purple-100 text-purple-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -120,52 +128,60 @@ export default function UserDashboard() {
 
           <div className="mb-8">
             <h3 className="text-3xl font-normal text-[#0f5132] mb-2" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="my-bookings-title">
-              My Bookings
+              My Orders
             </h3>
-            <p className="text-[#5a5a5a]">Track your fitness sessions</p>
+            <p className="text-[#5a5a5a]">Track your product orders</p>
           </div>
 
           {bookings.length === 0 ? (
             <Card className="bg-white border border-stone-100 p-12 text-center" data-testid="no-bookings">
               <div className="max-w-md mx-auto">
                 <Calendar className="w-16 h-16 text-[#0f5132] mx-auto mb-4" />
-                <h4 className="text-xl font-medium text-[#1a1a1a] mb-2" style={{fontFamily: 'Tenor Sans, serif'}}>No Bookings Yet</h4>
-                <p className="text-[#5a5a5a] mb-6">Start your fitness journey by booking your first session</p>
-                <Button onClick={() => navigate('/programs')} className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full px-8 py-6 uppercase tracking-widest" data-testid="browse-programs-btn">
-                  Browse Programs
-                </Button>
+                <h4 className="text-xl font-medium text-[#1a1a1a] mb-2" style={{fontFamily: 'Tenor Sans, serif'}}>No Orders Yet</h4>
+                <p className="text-[#5a5a5a] mb-6">Start shopping and place your first order</p>
               </div>
             </Card>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bookings.map((booking, idx) => (
-                <Card key={booking.id} className="bg-white border border-stone-100 p-6 hover:shadow-lg transition-all" data-testid={`booking-card-${idx}`}>
+              {bookings.map((order, idx) => (
+                <Card key={order.id} className="bg-white border border-stone-100 p-6 hover:shadow-lg transition-all" data-testid={`booking-card-${idx}`}>
                   <div className="flex justify-between items-start mb-4">
-                    <h4 className="text-lg font-medium text-[#1a1a1a]" style={{fontFamily: 'Tenor Sans, serif'}} data-testid={`booking-program-${idx}`}>{booking.program_name}</h4>
-                    <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(booking.booking_status)}`} data-testid={`booking-status-${idx}`}>
-                      {booking.booking_status}
+                    <div>
+                      <h4 className="text-lg font-medium text-[#1a1a1a]" style={{fontFamily: 'Tenor Sans, serif'}} data-testid={`booking-program-${idx}`}>
+                        Order #{order.id.slice(0, 8)}
+                      </h4>
+                      <p className="text-sm text-[#5a5a5a]">{order.customer_name}</p>
+                    </div>
+                    <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(order.order_status)}`} data-testid={`booking-status-${idx}`}>
+                      {order.order_status}
                     </span>
                   </div>
                   <div className="space-y-3">
-                    <div className="flex items-center text-sm text-[#5a5a5a]">
-                      <Calendar className="w-4 h-4 mr-2 text-[#0f5132]" />
-                      <span data-testid={`booking-schedule-${idx}`}>{new Date(booking.schedule).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</span>
+                    <div className="border-t border-stone-200 pt-3">
+                      <p className="text-sm text-[#5a5a5a] mb-2">Items:</p>
+                      {order.items.map((item, itemIdx) => (
+                        <div key={itemIdx} className="flex justify-between text-sm mb-1">
+                          <span className="text-[#1a1a1a]">{item.product_name} x {item.quantity}</span>
+                          <span className="text-[#1a1a1a]">₹{item.price}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="border-t border-stone-200 pt-3">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-sm font-medium text-[#1a1a1a]">Total Amount:</span>
+                        <span className="text-lg font-bold text-[#0f5132]">₹{order.total_amount}</span>
+                      </div>
                     </div>
                     <div className="flex items-center text-sm">
                       <Clock className="w-4 h-4 mr-2 text-[#0f5132]" />
-                      <span className="text-[#5a5a5a]">Booked on: </span>
-                      <span className="ml-1 text-[#1a1a1a]">{new Date(booking.created_at).toLocaleDateString('en-US', { dateStyle: 'short' })}</span>
+                      <span className="text-[#5a5a5a]">Ordered on: </span>
+                      <span className="ml-1 text-[#1a1a1a]">{new Date(order.created_at).toLocaleDateString('en-US', { dateStyle: 'medium' })}</span>
                     </div>
-                    {booking.notes && (
-                      <div className="mt-3 p-3 bg-[#fef3e8] rounded-none text-sm text-[#5a5a5a]">
-                        <span className="font-medium text-[#1a1a1a]">Notes: </span>{booking.notes}
-                      </div>
-                    )}
                     <div className="pt-3 border-t border-stone-200">
                       <div className="flex justify-between items-center">
                         <span className="text-sm text-[#5a5a5a]">Payment:</span>
-                        <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(booking.payment_status)}`} data-testid={`payment-status-${idx}`}>
-                          {booking.payment_status}
+                        <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(order.payment_status)}`} data-testid={`payment-status-${idx}`}>
+                          {order.payment_status}
                         </span>
                       </div>
                     </div>
