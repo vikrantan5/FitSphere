@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { productAPI } from '../lib/api';
+import { productAPI, imageAPI } from '../lib/api';
 import Layout from '../components/Layout';
-import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, AlertCircle, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function ProductsPage() {
@@ -9,6 +9,7 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -95,6 +96,42 @@ export default function ProductsPage() {
     });
   };
 
+  const handleImageUpload = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    setUploadingImage(true);
+    const uploadedUrls = [];
+
+    try {
+      for (const file of files) {
+        const formDataImage = new FormData();
+        formDataImage.append('file', file);
+        formDataImage.append('title', `${formData.name || 'Product'} Image`);
+        formDataImage.append('image_type', 'program');
+        formDataImage.append('description', 'Product image');
+
+        const response = await imageAPI.upload(formDataImage);
+        uploadedUrls.push(response.data.cdn_url);
+      }
+
+      setFormData({
+        ...formData,
+        image_urls: [...formData.image_urls, ...uploadedUrls]
+      });
+      toast.success(`${uploadedUrls.length} image(s) uploaded successfully`);
+    } catch (error) {
+      toast.error('Failed to upload image');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const removeImage = (index) => {
+    const newImages = formData.image_urls.filter((_, i) => i !== index);
+    setFormData({ ...formData, image_urls: newImages });
+  };
+
   const finalPrice = (price, discount) => {
     return (price - (price * discount) / 100).toFixed(2);
   };
@@ -152,9 +189,22 @@ export default function ProductsPage() {
                 {products.map((product) => (
                   <tr key={product.id} data-testid={`product-row-${product.id}`}>
                     <td className="px-6 py-4">
-                      <div>
-                        <div className="font-medium text-gray-800">{product.name}</div>
-                        <div className="text-sm text-gray-500">{product.sku}</div>
+                      <div className="flex items-center gap-3">
+                        {product.image_urls && product.image_urls.length > 0 ? (
+                          <img 
+                            src={product.image_urls[0]} 
+                            alt={product.name}
+                            className="w-12 h-12 object-cover rounded"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-gray-200 rounded flex items-center justify-center">
+                            <AlertCircle size={20} className="text-gray-400" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-medium text-gray-800">{product.name}</div>
+                          <div className="text-sm text-gray-500">{product.sku}</div>
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -330,6 +380,55 @@ export default function ProductsPage() {
                   required
                 />
               </div>
+
+              {/* Image Upload Section */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Product Images</label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="product-image-upload"
+                    disabled={uploadingImage}
+                  />
+                  <label
+                    htmlFor="product-image-upload"
+                    className="cursor-pointer flex flex-col items-center justify-center py-4"
+                  >
+                    <Upload className="h-10 w-10 text-gray-400 mb-2" />
+                    <p className="text-sm text-gray-600">
+                      {uploadingImage ? 'Uploading...' : 'Click to upload product images'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">PNG, JPG up to 10MB</p>
+                  </label>
+                </div>
+
+                {/* Image Preview Grid */}
+                {formData.image_urls.length > 0 && (
+                  <div className="grid grid-cols-4 gap-2 mt-4">
+                    {formData.image_urls.map((url, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={url}
+                          alt={`Product ${index + 1}`}
+                          className="w-full h-24 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"

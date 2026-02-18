@@ -155,10 +155,18 @@ export default function UserShopPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="products-grid">
             {filteredProducts.map((product) => (
               <Card key={product.id} className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105" data-testid="product-card">
-                <div className="h-56 bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative">
-                  <Package className="h-20 w-20 text-white/80" />
+                <div className="h-56 bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative overflow-hidden">
+                  {product.image_urls && product.image_urls.length > 0 ? (
+                    <img 
+                      src={product.image_urls[0]} 
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Package className="h-20 w-20 text-white/80" />
+                  )}
                   {product.discount > 0 && (
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full font-bold text-sm">
+                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full font-bold text-sm z-10">
                       {product.discount}% OFF
                     </div>
                   )}

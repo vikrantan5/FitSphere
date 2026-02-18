@@ -9,6 +9,8 @@ import DashboardPage from './pages/DashboardPage';
 import VideosPage from './pages/VideosPage';
 import ImagesPage from './pages/ImagesPage';
 import ProductsPage from './pages/ProductsPage';
+import ProgramsPage from './pages/ProgramsPage';
+import BookingsPage from './pages/BookingsPage';
 import OrdersPage from './pages/OrdersPage';
 import UsersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
@@ -140,7 +142,7 @@ function App() {
           }
         />
         <Route
-          path="/videos"
+          path="/admin/videos"
           element={
             <AdminRoute>
               <VideosPage />
@@ -148,7 +150,7 @@ function App() {
           }
         />
         <Route
-          path="/images"
+          path="/admin/images"
           element={
             <AdminRoute>
               <ImagesPage />
@@ -156,7 +158,7 @@ function App() {
           }
         />
         <Route
-          path="/products"
+          path="/admin/products"
           element={
             <AdminRoute>
               <ProductsPage />
@@ -164,7 +166,7 @@ function App() {
           }
         />
         <Route
-          path="/orders"
+          path="/admin/orders"
           element={
             <AdminRoute>
               <OrdersPage />
@@ -172,7 +174,7 @@ function App() {
           }
         />
         <Route
-          path="/users"
+          path="/admin/users"
           element={
             <AdminRoute>
               <UsersPage />
@@ -180,10 +182,26 @@ function App() {
           }
         />
         <Route
-          path="/notifications"
+          path="/admin/notifications"
           element={
             <AdminRoute>
               <NotificationsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/programs"
+          element={
+            <AdminRoute>
+              <ProgramsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/bookings"
+          element={
+            <AdminRoute>
+              <BookingsPage />
             </AdminRoute>
           }
         />

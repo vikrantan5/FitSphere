@@ -101,4 +101,44 @@ export const testimonialAPI = {
   getAll: (params) => api.get('/testimonials', { params }),
 };
 
+// Trainer APIs
+export const trainerAPI = {
+  create: (data) => api.post('/trainers', data),
+  getAll: (params) => api.get('/trainers', { params }),
+  getOne: (id) => api.get(`/trainers/${id}`),
+  update: (id, data) => api.put(`/trainers/${id}`, data),
+  delete: (id) => api.delete(`/trainers/${id}`),
+};
+
+// Program APIs
+export const programAPI = {
+  create: (data) => api.post('/programs', data),
+  getAll: (params) => api.get('/programs', { params }),
+  getOne: (id) => api.get(`/programs/${id}`),
+  update: (id, data) => api.put(`/programs/${id}`, data),
+  delete: (id) => api.delete(`/programs/${id}`),
+};
+
+// Booking APIs
+export const bookingAPI = {
+  create: (data) => api.post('/bookings', data),
+  getAll: (params) => api.get('/bookings', { params }),
+  getMyBookings: (params) => api.get('/bookings/user/my-bookings', { params }),
+  getOne: (id) => api.get(`/bookings/${id}`),
+  updateStatus: (id, data) => api.put(`/bookings/${id}/status`, data),
+  getAvailableSlots: (trainerId, date) => api.get(`/bookings/trainer/${trainerId}/available-slots`, {
+    params: { booking_date: date }
+  }),
+  createPayment: (bookingId) => api.post(`/bookings/${bookingId}/create-payment`),
+  verifyPayment: (bookingId, data) => api.post(`/bookings/${bookingId}/verify-payment`, data, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  }),
+  exportCSV: () => api.get('/bookings/export/csv', { responseType: 'blob' }),
+};
+
+// User Order APIs
+export const userOrderAPI = {
+  getMyOrders: (params) => api.get('/orders/user/my-orders', { params }),
+};
+
 export default api;
