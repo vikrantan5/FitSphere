@@ -16,12 +16,15 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    if (token) {
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+    if (token && userRole === 'admin') {
       authAPI.getMe()
         .then((res) => setAdmin(res.data))
         .catch(() => {
-          localStorage.removeItem('admin_token');
+          localStorage.removeItem('token');
+          localStorage.removeItem('userRole');
+          localStorage.removeItem('user');
           setAdmin(null);
         })
         .finally(() => setLoading(false));
@@ -32,13 +35,17 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (credentials) => {
     const response = await authAPI.login(credentials);
-    localStorage.setItem('admin_token', response.data.access_token);
+    localStorage.setItem('token', response.data.access_token);
+    localStorage.setItem('userRole', 'admin');
+    localStorage.setItem('user', JSON.stringify(response.data));
     setAdmin(response.data);
     return response.data;
   };
 
   const logout = () => {
-    localStorage.removeItem('admin_token');
+    localStorage.removeItem('token');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('user');
     setAdmin(null);
   };
 

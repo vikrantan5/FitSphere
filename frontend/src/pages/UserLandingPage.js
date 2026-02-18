@@ -2,16 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, ShoppingBag, Video, Star, MessageCircle, Dumbbell, Heart, Users, Award } from 'lucide-react';
-import { videoAPI, productAPI, testimonialAPI } from '../utils/api';
+import { Play, Heart, Star, Sparkles, Phone, Mail, Instagram, Youtube } from 'lucide-react';
+import axios from 'axios';
 import { toast } from 'sonner';
 
-export default function LandingPage() {
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
+
+export default function UserLandingPage() {
   const navigate = useNavigate();
   const [videos, setVideos] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [programs, setPrograms] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentTestimonial, setCurrentTestimonial] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -19,14 +23,14 @@ export default function LandingPage() {
 
   const fetchData = async () => {
     try {
-      const [videosRes, sessionsRes, testimonialsRes] = await Promise.all([
-        videoAPI.getAll({ limit: 4 }),
-        productAPI.getAll({ limit: 4 }),
-        testimonialAPI.getAll({ limit: 6, approved_only: true })
+      const [videosRes, programsRes, testimonialsRes] = await Promise.all([
+        axios.get(`${API}/videos`, { params: { limit: 4 } }),
+        axios.get(`${API}/programs`, { params: { limit: 8 } }),
+        axios.get(`${API}/testimonials`, { params: { limit: 6, approved_only: true } })
       ]);
       
       setVideos(videosRes.data);
-      setSessions(sessionsRes.data);
+      setPrograms(programsRes.data);
       setTestimonials(testimonialsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -37,235 +41,242 @@ export default function LandingPage() {
 
   const handleGetStarted = () => {
     const token = localStorage.getItem('token');
-    if (token) {
-      navigate('/user/sessions');
+    const userRole = localStorage.getItem('userRole');
+    
+    if (token && userRole === 'user') {
+      navigate('/user/dashboard');
+    } else if (token && userRole === 'admin') {
+      navigate('/admin/dashboard');
     } else {
       navigate('/login');
     }
   };
 
+  const nextTestimonial = () => {
+    setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
+  };
+
+  const prevTestimonial = () => {
+    setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-b from-[#fdf8f3] to-white">
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+      <nav className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50">
+        <div className="container mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <Dumbbell className="h-8 w-8 text-purple-600" />
-              <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                FitSphere
-              </span>
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-xl">H</span>
+              </div>
+              <div>
+                <span className="text-2xl font-bold text-[#0f5132]" style={{fontFamily: 'Playfair Display, serif'}}>
+                  Henna Heaven
+                </span>
+                <p className="text-xs text-gray-600">Luxury Mehendi Art</p>
+              </div>
             </div>
             
-            <div className="hidden md:flex items-center space-x-6">
-              <Link to="/user/sessions" className="text-gray-700 hover:text-purple-600 font-medium transition">
-                Sessions
-              </Link>
-              <Link to="/user/videos" className="text-gray-700 hover:text-purple-600 font-medium transition">
-                Videos
-              </Link>
-              <Link to="/user/shop" className="text-gray-700 hover:text-purple-600 font-medium transition">
-                Shop
-              </Link>
-              <Link to="/user/testimonials" className="text-gray-700 hover:text-purple-600 font-medium transition">
-                Reviews
-              </Link>
+            <div className="hidden md:flex items-center space-x-8">
+              <a href="#home" className="text-[#0f5132] hover:text-[#ff7f50] font-medium transition">
+                Home
+              </a>
+              <a href="#designs" className="text-[#0f5132] hover:text-[#ff7f50] font-medium transition">
+                Designs
+              </a>
+              <a href="#moments" className="text-[#0f5132] hover:text-[#ff7f50] font-medium transition">
+                Messages
+              </a>
+              <a href="#admin" className="text-[#0f5132] hover:text-[#ff7f50] font-medium transition" onClick={() => navigate('/login')}>
+                Admin
+              </a>
+              <a href="#testimonials" className="text-[#0f5132] hover:text-[#ff7f50] font-medium transition">
+                Logout
+              </a>
             </div>
 
-            <div className="flex items-center space-x-4">
-              {localStorage.getItem('token') ? (
-                <>
-                  <Button onClick={() => navigate('/user/dashboard')} variant="outline">
-                    Dashboard
-                  </Button>
-                  <Button onClick={() => navigate('/user/cart')} className="bg-gradient-to-r from-purple-600 to-pink-600">
-                    <ShoppingBag className="h-4 w-4 mr-2" />
-                    Cart
-                  </Button>
-                </>
-              ) : (
-                <>
-                  <Button onClick={() => navigate('/login')} variant="outline">
-                    Login
-                  </Button>
-                  <Button onClick={() => navigate('/login')} className="bg-gradient-to-r from-purple-600 to-pink-600">
-                    Get Started
-                  </Button>
-                </>
-              )}
-            </div>
+            <Button 
+              onClick={handleGetStarted}
+              className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full px-8"
+            >
+              Book Now
+            </Button>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <section className="relative py-20 md:py-32 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-600/10 to-pink-600/10"></div>
-        <div className="container mx-auto px-4 relative z-10">
+      <section id="home" className="relative py-24 overflow-hidden">
+        <div 
+          className="absolute inset-0 bg-cover bg-center opacity-40"
+          style={{
+            backgroundImage: "url('https://images.unsplash.com/photo-1610701596007-11502861dcfa?w=1600')",
+            filter: 'blur(2px)'
+          }}
+        ></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0f5132]/80 via-[#0f5132]/60 to-transparent"></div>
+        
+        <div className="container mx-auto px-6 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center px-4 py-2 bg-purple-100 rounded-full mb-6">
-              <Star className="h-4 w-4 text-purple-600 mr-2" />
-              <span className="text-purple-800 font-medium">Women-Centric Fitness Platform</span>
+            <div className="inline-flex items-center px-6 py-2 bg-white/20 backdrop-blur-md rounded-full mb-8 border border-white/30">
+              <Sparkles className="h-4 w-4 text-[#d4af37] mr-2" />
+              <span className="text-white font-medium tracking-wide">Premium Mehendi Experience</span>
             </div>
             
-            <h1 className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-purple-600 via-pink-600 to-purple-600 bg-clip-text text-transparent">
-              Transform Your <br />Fitness Journey
+            <h1 
+              className="text-6xl md:text-8xl font-bold mb-6 text-white drop-shadow-2xl"
+              style={{fontFamily: 'Playfair Display, serif'}}
+            >
+              Henna Heaven
             </h1>
             
-            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
-              Personalized training sessions, expert-led workout videos, and premium fitness products - 
-              all in one place. Designed exclusively for women.
+            <p className="text-2xl text-white/90 mb-12 max-w-3xl mx-auto leading-relaxed drop-shadow-lg">
+              Where tradition meets luxury. Creating unforgettable mehendi moments for your special day.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex flex-col sm:flex-row gap-6 justify-center">
               <Button 
-                onClick={handleGetStarted} 
+                onClick={handleGetStarted}
                 size="lg"
-                className="bg-gradient-to-r from-purple-600 to-pink-600 text-lg px-8 py-6 hover:shadow-lg hover:scale-105 transition-all"
-                data-testid="get-started-btn"
+                className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white text-lg px-10 py-7 rounded-full shadow-2xl hover:scale-105 transition-all"
               >
-                <Dumbbell className="h-5 w-5 mr-2" />
-                Start Your Journey
+                <Sparkles className="h-5 w-5 mr-2" />
+                Book Your Mehendi Experience
               </Button>
               
               <Button 
-                onClick={() => navigate('/user/videos')}
+                onClick={() => document.getElementById('designs').scrollIntoView({ behavior: 'smooth' })}
                 size="lg"
                 variant="outline"
-                className="text-lg px-8 py-6 border-2 border-purple-600 hover:bg-purple-50"
+                className="text-lg px-10 py-7 rounded-full border-2 border-white text-white hover:bg-white/10 backdrop-blur-sm"
               >
-                <Play className="h-5 w-5 mr-2" />
-                Watch Videos
+                Browse Designs
               </Button>
-            </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-3 gap-8 mt-16 max-w-2xl mx-auto">
-              <div className="text-center">
-                <div className="text-4xl font-bold text-purple-600 mb-2">500+</div>
-                <div className="text-gray-600">Active Members</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-pink-600 mb-2">100+</div>
-                <div className="text-gray-600">Workout Videos</div>
-              </div>
-              <div className="text-center">
-                <div className="text-4xl font-bold text-purple-600 mb-2">50+</div>
-                <div className="text-gray-600">Expert Trainers</div>
-              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold mb-4 text-gray-900">Why Choose FitSphere?</h2>
-            <p className="text-xl text-gray-600">Everything you need for your fitness journey in one place</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <Card className="p-8 hover:shadow-xl transition-shadow border-2 border-transparent hover:border-purple-200">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <Users className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Personal Training</h3>
-              <p className="text-gray-600">
-                One-on-one sessions with certified trainers. Customized programs tailored to your goals and fitness level.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-shadow border-2 border-transparent hover:border-pink-200">
-              <div className="bg-pink-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <Video className="h-8 w-8 text-pink-600" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Workout Videos</h3>
-              <p className="text-gray-600">
-                Access hundreds of professional workout videos. From yoga to HIIT, find the perfect routine for you.
-              </p>
-            </Card>
-
-            <Card className="p-8 hover:shadow-xl transition-shadow border-2 border-transparent hover:border-purple-200">
-              <div className="bg-purple-100 w-16 h-16 rounded-full flex items-center justify-center mb-6">
-                <ShoppingBag className="h-8 w-8 text-purple-600" />
-              </div>
-              <h3 className="text-2xl font-bold mb-4">Fitness Products</h3>
-              <p className="text-gray-600">
-                Shop premium fitness equipment, apparel, and supplements. Everything you need delivered to your door.
-              </p>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* Popular Sessions Preview */}
-      {sessions.length > 0 && (
-        <section className="py-20 bg-gradient-to-br from-purple-50 to-pink-50">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-between items-center mb-12">
-              <div>
-                <h2 className="text-4xl font-bold mb-2 text-gray-900">Popular Sessions</h2>
-                <p className="text-xl text-gray-600">Book your personalized training session today</p>
-              </div>
-              <Button onClick={() => navigate('/user/sessions')} variant="outline" className="hidden md:flex">
-                View All Sessions
-              </Button>
+      {/* Mehendi Moments (Videos) */}
+      {videos.length > 0 && (
+        <section id="moments" className="py-20 bg-gradient-to-br from-[#0f5132] to-[#0f5132]/90">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 
+                className="text-5xl font-bold mb-4 text-white"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                Mehendi Moments
+              </h2>
+              <p className="text-xl text-white/80">Watch our latest creations come to life</p>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {sessions.slice(0, 4).map((session) => (
-                <Card key={session.id} className="overflow-hidden hover:shadow-xl transition-all hover:scale-105">
-                  <div className="h-48 bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center">
-                    <Dumbbell className="h-16 w-16 text-white" />
+              {videos.slice(0, 4).map((video) => (
+                <Card 
+                  key={video.id} 
+                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer bg-white/95 backdrop-blur rounded-2xl"
+                  onClick={() => navigate('/user/videos')}
+                >
+                  <div className="relative h-72 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] flex items-center justify-center group">
+                    {video.thumbnail_url ? (
+                      <img 
+                        src={video.thumbnail_url} 
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Play className="h-20 w-20 text-white group-hover:scale-110 transition-transform" />
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/30 group-hover:bg-black/40 transition-all"></div>
+                    <div className="absolute bottom-4 left-4 right-4">
+                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center justify-center">
+                        <Heart className="h-4 w-4 text-[#ff7f50] mr-2" />
+                        <span className="text-sm font-semibold text-[#0f5132]">{video.view_count || 1250}</span>
+                      </div>
+                    </div>
                   </div>
                   <div className="p-6">
-                    <h3 className="font-bold text-lg mb-2">{session.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{session.description}</p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-2xl font-bold text-purple-600">₹{session.price}</span>
-                      <Button size="sm" className="bg-gradient-to-r from-purple-600 to-pink-600">
-                        Book Now
-                      </Button>
-                    </div>
+                    <h3 className="font-bold text-lg mb-2 text-[#0f5132]">{video.title}</h3>
+                    <p className="text-gray-600 text-sm">{video.description?.substring(0, 60)}...</p>
                   </div>
                 </Card>
               ))}
+            </div>
+
+            <div className="text-center mt-12">
+              <Button 
+                onClick={() => navigate('/user/videos')}
+                className="bg-white text-[#0f5132] hover:bg-white/90 rounded-full px-10 py-6 text-lg font-semibold"
+              >
+                View All Reels
+              </Button>
             </div>
           </div>
         </section>
       )}
 
-      {/* Workout Videos Preview */}
-      {videos.length > 0 && (
-        <section className="py-20 bg-white">
-          <div className="container mx-auto px-4">
-            <div className="flex justify-between items-center mb-12">
-              <div>
-                <h2 className="text-4xl font-bold mb-2 text-gray-900">Featured Workouts</h2>
-                <p className="text-xl text-gray-600">Expert-led video tutorials for all levels</p>
-              </div>
-              <Button onClick={() => navigate('/user/videos')} variant="outline" className="hidden md:flex">
-                Browse All Videos
-              </Button>
+      {/* Our Signature Collection (Programs) */}
+      {programs.length > 0 && (
+        <section id="designs" className="py-20 bg-gradient-to-br from-[#fdf8f3] to-[#fff5ee]">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 
+                className="text-5xl font-bold mb-4 text-[#0f5132]"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                Our Signature Collection
+              </h2>
+              <p className="text-xl text-gray-700">Handpicked designs for every occasion</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {videos.slice(0, 4).map((video) => (
-                <Card key={video.id} className="overflow-hidden hover:shadow-xl transition-all hover:scale-105 cursor-pointer">
-                  <div className="relative h-48 bg-gradient-to-br from-blue-400 to-purple-400 flex items-center justify-center group">
-                    <Play className="h-16 w-16 text-white group-hover:scale-110 transition-transform" />
-                    <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm">
-                      {Math.floor(video.duration / 60)} min
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+              {programs.slice(0, 8).map((program) => (
+                <Card 
+                  key={program.id} 
+                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 bg-white rounded-2xl group"
+                >
+                  <div className="relative h-80 overflow-hidden">
+                    {program.image_url ? (
+                      <img 
+                        src={program.image_url} 
+                        alt={program.title}
+                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-[#ff7f50] to-[#d4af37] flex items-center justify-center">
+                        <Sparkles className="h-20 w-20 text-white" />
+                      </div>
+                    )}
+                    <div className="absolute top-4 left-4 bg-[#0f5132] text-white px-4 py-2 rounded-full text-sm font-semibold">
+                      {program.category || 'Bridal'}
                     </div>
                   </div>
                   <div className="p-6">
-                    <div className="text-xs text-purple-600 font-semibold mb-2 uppercase">{video.category}</div>
-                    <h3 className="font-bold text-lg mb-2">{video.title}</h3>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span className="capitalize">{video.difficulty}</span>
-                      <span>{video.view_count} views</span>
+                    <h3 className="font-bold text-xl mb-2 text-[#0f5132]" style={{fontFamily: 'Playfair Display, serif'}}>
+                      {program.title}
+                    </h3>
+                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{program.description}</p>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Starting from</div>
+                        <span className="text-2xl font-bold bg-gradient-to-r from-[#ff7f50] to-[#d4af37] bg-clip-text text-transparent">
+                          ₹{program.price}
+                        </span>
+                      </div>
+                      <Button 
+                        onClick={handleGetStarted}
+                        className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full"
+                      >
+                        Book Now
+                      </Button>
+                    </div>
+                    <div className="mt-4 flex items-center text-sm text-gray-600">
+                      <span className="mr-2">⏱</span>
+                      <span>{program.duration_weeks ? `${program.duration_weeks} hours` : '3 hours'}</span>
                     </div>
                   </div>
                 </Card>
@@ -277,111 +288,155 @@ export default function LandingPage() {
 
       {/* Testimonials Section */}
       {testimonials.length > 0 && (
-        <section className="py-20 bg-gradient-to-br from-pink-50 to-purple-50">
-          <div className="container mx-auto px-4">
-            <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold mb-4 text-gray-900">What Our Members Say</h2>
-              <p className="text-xl text-gray-600">Real stories from real women transforming their lives</p>
+        <section id="testimonials" className="py-20 bg-gradient-to-br from-[#ffe5e0] via-[#fff5ee] to-[#fde8d0]">
+          <div className="container mx-auto px-6">
+            <div className="text-center mb-16">
+              <h2 
+                className="text-5xl font-bold mb-4 text-[#0f5132]"
+                style={{fontFamily: 'Playfair Display, serif'}}
+              >
+                What Our Brides Say
+              </h2>
+              <p className="text-xl text-gray-700">Real stories from real celebrations</p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {testimonials.slice(0, 6).map((testimonial) => (
-                <Card key={testimonial.id} className="p-6 hover:shadow-xl transition-shadow">
-                  <div className="flex items-center mb-4">
-                    {[...Array(testimonial.rating)].map((_, i) => (
-                      <Star key={i} className="h-5 w-5 text-yellow-400 fill-yellow-400" />
+            <div className="max-w-4xl mx-auto">
+              {testimonials[currentTestimonial] && (
+                <Card className="p-12 bg-white/80 backdrop-blur shadow-2xl rounded-3xl">
+                  <div className="flex justify-center mb-6">
+                    {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
+                      <Star key={i} className="h-8 w-8 text-[#d4af37] fill-[#d4af37]" />
                     ))}
                   </div>
-                  <p className="text-gray-700 mb-4 italic">"{testimonial.comment}"</p>
-                  <div className="flex items-center">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 flex items-center justify-center text-white font-bold">
-                      {testimonial.user_name.charAt(0)}
+                  <p className="text-2xl text-gray-800 text-center mb-8 italic leading-relaxed">
+                    "{testimonials[currentTestimonial].comment}"
+                  </p>
+                  <div className="flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#ff7f50] to-[#d4af37] flex items-center justify-center text-white font-bold text-2xl">
+                      {testimonials[currentTestimonial].user_name.charAt(0)}
                     </div>
-                    <div className="ml-3">
-                      <div className="font-semibold">{testimonial.user_name}</div>
-                      <div className="text-sm text-gray-500 capitalize">{testimonial.service_type}</div>
+                    <div className="ml-4">
+                      <div className="font-bold text-xl text-[#0f5132]">
+                        {testimonials[currentTestimonial].user_name}
+                      </div>
+                      <div className="text-gray-600">
+                        {new Date(testimonials[currentTestimonial].created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                      </div>
                     </div>
                   </div>
                 </Card>
-              ))}
+              )}
+
+              <div className="flex justify-center items-center gap-4 mt-8">
+                <button
+                  onClick={prevTestimonial}
+                  className="w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center text-[#0f5132] hover:bg-[#0f5132] hover:text-white"
+                >
+                  ←
+                </button>
+                <div className="flex gap-2">
+                  {testimonials.map((_, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setCurrentTestimonial(idx)}
+                      className={`h-3 rounded-full transition-all ${
+                        idx === currentTestimonial 
+                          ? 'w-8 bg-[#ff7f50]' 
+                          : 'w-3 bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <button
+                  onClick={nextTestimonial}
+                  className="w-12 h-12 rounded-full bg-white shadow-lg hover:shadow-xl transition-all flex items-center justify-center text-[#0f5132] hover:bg-[#0f5132] hover:text-white"
+                >
+                  →
+                </button>
+              </div>
             </div>
           </div>
         </section>
       )}
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-purple-600 to-pink-600 text-white">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6">Ready to Start Your Transformation?</h2>
-          <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-            Join thousands of women who have already transformed their lives with FitSphere. 
-            Your journey to a healthier, stronger you starts here.
+      <section className="py-24 bg-gradient-to-br from-[#0f5132] to-[#0f5132]/90 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-10">
+          <div className="absolute top-10 left-10 w-72 h-72 bg-[#d4af37] rounded-full blur-3xl"></div>
+          <div className="absolute bottom-10 right-10 w-96 h-96 bg-[#ff7f50] rounded-full blur-3xl"></div>
+        </div>
+        
+        <div className="container mx-auto px-6 text-center relative z-10">
+          <Sparkles className="h-16 w-16 text-[#d4af37] mx-auto mb-6" />
+          <h2 
+            className="text-5xl font-bold mb-6 text-white"
+            style={{fontFamily: 'Playfair Display, serif'}}
+          >
+            Ready to Create Magic?
+          </h2>
+          <p className="text-xl text-white/90 mb-10 max-w-2xl mx-auto">
+            Book your mehendi experience today and let us make your special day even more beautiful
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              onClick={handleGetStarted}
-              size="lg" 
-              className="bg-white text-purple-600 hover:bg-gray-100 text-lg px-8 py-6"
-            >
-              <Heart className="h-5 w-5 mr-2" />
-              Join FitSphere Now
-            </Button>
-            <Button 
-              onClick={() => navigate('/user/chat')}
-              size="lg" 
-              variant="outline"
-              className="border-2 border-white text-white hover:bg-white/10 text-lg px-8 py-6"
-            >
-              <MessageCircle className="h-5 w-5 mr-2" />
-              Chat with Us
-            </Button>
-          </div>
+          <Button 
+            onClick={handleGetStarted}
+            size="lg"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white text-lg px-12 py-8 rounded-full shadow-2xl hover:scale-105 transition-all"
+          >
+            Book Your Slot Now
+          </Button>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
+      <footer className="bg-[#1a3d2e] text-white py-16">
+        <div className="container mx-auto px-6">
+          <div className="grid md:grid-cols-3 gap-12">
             <div>
-              <div className="flex items-center space-x-2 mb-4">
-                <Dumbbell className="h-6 w-6 text-purple-400" />
-                <span className="text-xl font-bold">FitSphere</span>
+              <div className="flex items-center space-x-3 mb-6">
+                <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+                  <span className="text-white font-bold text-xl">H</span>
+                </div>
+                <span className="text-2xl font-bold" style={{fontFamily: 'Playfair Display, serif'}}>
+                  Henna Heaven
+                </span>
               </div>
-              <p className="text-gray-400">
-                Empowering women through fitness, one session at a time.
+              <p className="text-white/70 leading-relaxed">
+                Creating unforgettable mehendi moments with luxury, tradition, and artistry.
               </p>
             </div>
 
             <div>
-              <h4 className="font-bold mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link to="/user/sessions" className="hover:text-purple-400 transition">Training Sessions</Link></li>
-                <li><Link to="/user/videos" className="hover:text-purple-400 transition">Workout Videos</Link></li>
-                <li><Link to="/user/shop" className="hover:text-purple-400 transition">Shop Products</Link></li>
-                <li><Link to="/user/dashboard" className="hover:text-purple-400 transition">My Dashboard</Link></li>
-              </ul>
+              <h3 className="text-xl font-bold mb-4">Contact Us</h3>
+              <div className="space-y-3 text-white/70">
+                <div className="flex items-center">
+                  <Phone className="h-5 w-5 mr-3 text-[#ff7f50]" />
+                  <span>+91 98765 43210</span>
+                </div>
+                <div className="flex items-center">
+                  <Mail className="h-5 w-5 mr-3 text-[#ff7f50]" />
+                  <span>hello@hennaheaven.com</span>
+                </div>
+              </div>
             </div>
 
             <div>
-              <h4 className="font-bold mb-4">Support</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><Link to="/user/chat" className="hover:text-purple-400 transition">Live Chat</Link></li>
-                <li><Link to="/user/testimonials" className="hover:text-purple-400 transition">Testimonials</Link></li>
-                <li><a href="#" className="hover:text-purple-400 transition">FAQs</a></li>
-                <li><a href="#" className="hover:text-purple-400 transition">Contact Us</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold mb-4">Connect</h4>
-              <p className="text-gray-400 mb-2">support@fitsphere.com</p>
-              <p className="text-gray-400">+91 (123) 456-7890</p>
+              <h3 className="text-xl font-bold mb-4">Follow Us</h3>
+              <div className="flex gap-4">
+                <a href="#" className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all">
+                  <Instagram className="h-6 w-6" />
+                </a>
+                <a href="#" className="w-12 h-12 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center transition-all">
+                  <Youtube className="h-6 w-6" />
+                </a>
+              </div>
             </div>
           </div>
 
-          <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-            <p>&copy; 2025 FitSphere. All rights reserved. Made with ❤️ for women's wellness.</p>
+          <div className="mt-12 pt-8 border-t border-white/20 text-center text-white/60">
+            <p className="flex items-center justify-center gap-2">
+              © 2026 Henna Heaven. All rights reserved. Made with love and mehendi. 
+              <Heart className="h-4 w-4 text-[#ff7f50]" />
+            </p>
           </div>
         </div>
       </footer>

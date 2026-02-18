@@ -55,25 +55,25 @@ export default function DashboardPage() {
       title: 'Total Users',
       value: analytics?.total_users || 0,
       icon: Users,
-      color: 'bg-blue-500',
+      color: 'bg-[#0f5132]',
     },
     {
       title: 'Total Revenue',
       value: `₹${analytics?.total_revenue?.toFixed(2) || 0}`,
       icon: DollarSign,
-      color: 'bg-green-500',
+      color: 'bg-[#d4af37]',
     },
     {
       title: 'Total Orders',
       value: analytics?.total_orders || 0,
       icon: ShoppingCart,
-      color: 'bg-purple-500',
+      color: 'bg-[#ff7f50]',
     },
     {
       title: 'Orders Today',
       value: analytics?.orders_today || 0,
       icon: TrendingUp,
-      color: 'bg-orange-500',
+      color: 'bg-[#0f5132]',
     },
   ];
 
@@ -81,8 +81,8 @@ export default function DashboardPage() {
     <Layout>
       <div className="space-y-8" data-testid="dashboard-page">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-          <p className="text-gray-600 mt-1">Welcome to FitSphere Admin Panel</p>
+          <h1 className="text-3xl font-bold text-[#0f5132]" style={{fontFamily: 'Playfair Display, serif'}}>Dashboard</h1>
+          <p className="text-gray-600 mt-1">Welcome to Henna Heaven Admin Panel</p>
         </div>
 
         {/* Stats Grid */}
