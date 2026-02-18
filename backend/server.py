@@ -19,6 +19,7 @@ import socketio
 from models import *
 from auth import hash_password, verify_password, create_access_token, get_current_admin
 from bunny_cdn import upload_to_bunny_cdn, delete_from_bunny_cdn
+from auth import get_current_admin as get_current_user
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
