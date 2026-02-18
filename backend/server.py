@@ -1,319 +1,825 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Depends, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from dotenv import load_dotenv
+from fastapi import FastAPI, APIRouter, HTTPException, Depends, UploadFile, File, Form, Query, status
+from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
+from pathlib import Path
+from typing import List, Optional, Annotated
+from datetime import datetime
 import os
 import logging
-from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict, EmailStr
-from typing import List, Optional
-import uuid
-from datetime import datetime, timezone, timedelta
-from passlib.context import CryptContext
-import jwt
+import razorpay
+import hashlib
+import hmac
+import io
+import csv
+
+# Import local modules
+from models import *
+from auth import hash_password, verify_password, create_access_token, get_current_admin
+from bunny_cdn import upload_to_bunny_cdn, delete_from_bunny_cdn
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ['DB_NAME']]
 
-app = FastAPI()
+# Razorpay client
+razorpay_client = razorpay.Client(auth=(
+    os.environ['RAZORPAY_KEY_ID'],
+    os.environ['RAZORPAY_KEY_SECRET']
+))
+
+# Create the main app
+app = FastAPI(title="FitSphere Admin API")
+
+# Create API router
 api_router = APIRouter(prefix="/api")
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
+# ==================== AUTHENTICATION ENDPOINTS ====================
 
-from fastapi import Response
-
-@app.api_route("/", methods=["GET", "HEAD"])
-def health():
-    return {"status": "running"}
-
-
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-security = HTTPBearer()
-
-SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'fitsphere-secret-key-change-in-production')
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
-
-class User(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    email: EmailStr
-    name: str
-    role: str = "member"
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
-    role: str = "member"
-
-class UserLogin(BaseModel):
-    email: EmailStr
-    password: str
-
-class Program(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: str
-    duration: str
-    price: float
-    category: str
-    image_url: str
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class ProgramCreate(BaseModel):
-    name: str
-    description: str
-    duration: str
-    price: float
-    category: str
-    image_url: str
-
-class Product(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    description: str
-    price: float
-    category: str
-    image_url: str
-    stock: int = 100
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class ProductCreate(BaseModel):
-    name: str
-    description: str
-    price: float
-    category: str
-    image_url: str
-    stock: int = 100
-
-class Booking(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    user_id: str
-    user_name: str
-    user_email: str
-    program_id: str
-    program_name: str
-    schedule: str
-    payment_status: str = "pending"
-    booking_status: str = "pending"
-    notes: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class BookingCreate(BaseModel):
-    program_id: str
-    program_name: str
-    schedule: str
-    notes: Optional[str] = None
-
-class BookingUpdate(BaseModel):
-    booking_status: Optional[str] = None
-    payment_status: Optional[str] = None
-
-class Testimonial(BaseModel):
-    model_config = ConfigDict(extra="ignore")
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    name: str
-    rating: int
-    comment: str
-    image_url: str
-    date: str = Field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-
-class TestimonialCreate(BaseModel):
-    name: str
-    rating: int
-    comment: str
-    image_url: str
-
-class DashboardMetrics(BaseModel):
-    total_bookings: int
-    revenue: float
-    pending_requests: int
-    todays_sessions: int
-
-def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
-
-def create_access_token(data: dict) -> str:
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    token = credentials.credentials
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        user_id: str = payload.get("sub")
-        if user_id is None:
-            raise HTTPException(status_code=401, detail="Invalid authentication credentials")
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Token expired")
-    except jwt.JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+@api_router.post("/auth/login", response_model=AdminLoginResponse)
+async def admin_login(credentials: AdminLoginRequest):
+    """Admin login endpoint"""
+    admin = await db.admins.find_one({"email": credentials.email}, {"_id": 0})
     
-    user = await db.users.find_one({"id": user_id}, {"_id": 0})
-    if user is None:
-        raise HTTPException(status_code=401, detail="User not found")
-    return User(**user)
-
-@api_router.post("/auth/register")
-async def register(user_data: UserCreate):
-    existing_user = await db.users.find_one({"email": user_data.email}, {"_id": 0})
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+    if not admin or not verify_password(credentials.password, admin['password_hash']):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
     
-    user = User(
-        email=user_data.email,
-        name=user_data.name,
-        role=user_data.role
+    if not admin.get('is_active', True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+    
+    # Update last login
+    await db.admins.update_one(
+        {"id": admin['id']},
+        {"$set": {"last_login": datetime.utcnow().isoformat()}}
     )
     
-    user_dict = user.model_dump()
-    user_dict["password"] = hash_password(user_data.password)
+    # Create access token
+    access_token = create_access_token(
+        data={
+            "sub": admin['id'],
+            "email": admin['email'],
+            "role": admin['role']
+        }
+    )
     
-    await db.users.insert_one(user_dict)
+    return AdminLoginResponse(
+        access_token=access_token,
+        admin_id=admin['id'],
+        email=admin['email'],
+        name=admin['name']
+    )
+
+@api_router.post("/auth/create-admin")
+async def create_admin(admin_data: AdminCreate):
+    """Create a new admin (protected endpoint - for setup only)"""
+    # Check if admin already exists
+    existing = await db.admins.find_one({"email": admin_data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="Admin with this email already exists")
     
-    access_token = create_access_token(data={"sub": user.id, "email": user.email, "role": user.role})
-    return {"token": access_token, "user": user}
-
-@api_router.post("/auth/login")
-async def login(user_data: UserLogin):
-    user = await db.users.find_one({"email": user_data.email}, {"_id": 0})
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    admin = Admin(
+        email=admin_data.email,
+        name=admin_data.name,
+        password_hash=hash_password(admin_data.password),
+        role=admin_data.role
+    )
     
-    if not verify_password(user_data.password, user["password"]):
-        raise HTTPException(status_code=401, detail="Invalid email or password")
+    admin_dict = admin.model_dump()
+    admin_dict['created_at'] = admin_dict['created_at'].isoformat()
+    if admin_dict.get('last_login'):
+        admin_dict['last_login'] = admin_dict['last_login'].isoformat()
     
-    access_token = create_access_token(data={"sub": user["id"], "email": user["email"], "role": user["role"]})
-    user_obj = User(**user)
-    return {"token": access_token, "user": user_obj}
-
-@api_router.get("/auth/me", response_model=User)
-async def get_me(current_user: User = Depends(get_current_user)):
-    return current_user
-
-@api_router.get("/programs", response_model=List[Program])
-async def get_programs():
-    programs = await db.programs.find({}, {"_id": 0}).to_list(1000)
-    return programs
-
-@api_router.post("/programs", response_model=Program)
-async def create_program(program_data: ProgramCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    await db.admins.insert_one(admin_dict)
     
-    program = Program(**program_data.model_dump())
-    await db.programs.insert_one(program.model_dump())
-    return program
+    return {"message": "Admin created successfully", "admin_id": admin.id}
 
-@api_router.get("/products", response_model=List[Product])
-async def get_products():
-    products = await db.products.find({}, {"_id": 0}).to_list(1000)
-    return products
+@api_router.get("/auth/me")
+async def get_current_admin_info(admin: dict = Depends(get_current_admin)):
+    """Get current admin information"""
+    admin_data = await db.admins.find_one({"id": admin['admin_id']}, {"_id": 0, "password_hash": 0})
+    if not admin_data:
+        raise HTTPException(status_code=404, detail="Admin not found")
+    return admin_data
+
+# ==================== VIDEO MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/videos/upload", response_model=FileUploadResponse)
+async def upload_video(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    category: str = Form(...),
+    difficulty: str = Form(...),
+    duration: int = Form(...),
+    description: str = Form(...),
+    admin: dict = Depends(get_current_admin)
+):
+    """Upload video to Bunny CDN"""
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith('video/'):
+        raise HTTPException(status_code=400, detail="File must be a video")
+    
+    # Create destination path
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
+    destination_path = f"videos/{safe_filename}"
+    
+    try:
+        # Upload to Bunny CDN
+        upload_result = await upload_to_bunny_cdn(file, destination_path, "video")
+        
+        # Save video metadata to database
+        video = Video(
+            title=title,
+            category=VideoCategory(category),
+            difficulty=VideoDifficulty(difficulty),
+            duration=duration,
+            description=description,
+            video_url=upload_result['cdn_url']
+        )
+        
+        video_dict = video.model_dump()
+        video_dict['created_at'] = video_dict['created_at'].isoformat()
+        video_dict['updated_at'] = video_dict['updated_at'].isoformat()
+        
+        await db.videos.insert_one(video_dict)
+        
+        # Create notification
+        notification = Notification(
+            notification_type=NotificationType.SYSTEM_ERROR,
+            message=f"New video uploaded: {title}"
+        )
+        notif_dict = notification.model_dump()
+        notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+        await db.notifications.insert_one(notif_dict)
+        
+        return FileUploadResponse(
+            success=True,
+            file_name=file.filename,
+            file_url=upload_result['file_url'],
+            cdn_url=upload_result['cdn_url']
+        )
+    
+    except Exception as e:
+        logger.error(f"Video upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/videos", response_model=List[Video])
+async def get_videos(
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all videos with optional filters"""
+    query = {}
+    if category:
+        query['category'] = category
+    if difficulty:
+        query['difficulty'] = difficulty
+    if search:
+        query['title'] = {"$regex": search, "$options": "i"}
+    
+    videos = await db.videos.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for video in videos:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(video.get(field), str):
+                video[field] = datetime.fromisoformat(video[field])
+    
+    return videos
+
+@api_router.get("/videos/{video_id}", response_model=Video)
+async def get_video(video_id: str):
+    """Get single video by ID"""
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(video.get(field), str):
+            video[field] = datetime.fromisoformat(video[field])
+    
+    return video
+
+@api_router.put("/videos/{video_id}", response_model=Video)
+async def update_video(
+    video_id: str,
+    video_update: VideoUpdate,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update video metadata"""
+    update_data = {k: v for k, v in video_update.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    result = await db.videos.update_one({"id": video_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    updated_video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(updated_video.get(field), str):
+            updated_video[field] = datetime.fromisoformat(updated_video[field])
+    
+    return updated_video
+
+@api_router.delete("/videos/{video_id}")
+async def delete_video(video_id: str, admin: dict = Depends(get_current_admin)):
+    """Delete video from database and CDN"""
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    # Extract file path from CDN URL
+    cdn_url = video.get('video_url', '')
+    if 'videos/' in cdn_url:
+        file_path = cdn_url.split('/')[-2] + '/' + cdn_url.split('/')[-1]
+        await delete_from_bunny_cdn(file_path)
+    
+    await db.videos.delete_one({"id": video_id})
+    
+    return {"message": "Video deleted successfully"}
+
+# ==================== IMAGE MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/images/upload", response_model=FileUploadResponse)
+async def upload_image(
+    file: UploadFile = File(...),
+    title: str = Form(...),
+    image_type: str = Form(...),
+    description: Optional[str] = Form(None),
+    admin: dict = Depends(get_current_admin)
+):
+    """Upload image to Bunny CDN"""
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
+    destination_path = f"images/{safe_filename}"
+    
+    try:
+        upload_result = await upload_to_bunny_cdn(file, destination_path, "image")
+        
+        image = Image(
+            title=title,
+            image_type=ImageType(image_type),
+            image_url=upload_result['cdn_url'],
+            description=description
+        )
+        
+        image_dict = image.model_dump()
+        image_dict['created_at'] = image_dict['created_at'].isoformat()
+        
+        await db.images.insert_one(image_dict)
+        
+        return FileUploadResponse(
+            success=True,
+            file_name=file.filename,
+            file_url=upload_result['file_url'],
+            cdn_url=upload_result['cdn_url']
+        )
+    
+    except Exception as e:
+        logger.error(f"Image upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/images", response_model=List[Image])
+async def get_images(
+    image_type: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all images"""
+    query = {}
+    if image_type:
+        query['image_type'] = image_type
+    
+    images = await db.images.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for image in images:
+        if isinstance(image.get('created_at'), str):
+            image['created_at'] = datetime.fromisoformat(image['created_at'])
+    
+    return images
+
+@api_router.delete("/images/{image_id}")
+async def delete_image(image_id: str, admin: dict = Depends(get_current_admin)):
+    """Delete image"""
+    image = await db.images.find_one({"id": image_id}, {"_id": 0})
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    cdn_url = image.get('image_url', '')
+    if 'images/' in cdn_url:
+        file_path = cdn_url.split('/')[-2] + '/' + cdn_url.split('/')[-1]
+        await delete_from_bunny_cdn(file_path)
+    
+    await db.images.delete_one({"id": image_id})
+    
+    return {"message": "Image deleted successfully"}
+
+# ==================== PRODUCT MANAGEMENT ENDPOINTS ====================
 
 @api_router.post("/products", response_model=Product)
-async def create_product(product_data: ProductCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+async def create_product(product: ProductCreate, admin: dict = Depends(get_current_admin)):
+    """Create new product"""
+    new_product = Product(**product.model_dump())
     
-    product = Product(**product_data.model_dump())
-    await db.products.insert_one(product.model_dump())
+    product_dict = new_product.model_dump()
+    product_dict['created_at'] = product_dict['created_at'].isoformat()
+    product_dict['updated_at'] = product_dict['updated_at'].isoformat()
+    
+    await db.products.insert_one(product_dict)
+    
+    # Check for low stock and create notification
+    if new_product.stock < 10:
+        notification = Notification(
+            notification_type=NotificationType.LOW_STOCK,
+            message=f"Low stock alert: {new_product.name} has only {new_product.stock} items left"
+        )
+        notif_dict = notification.model_dump()
+        notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+        await db.notifications.insert_one(notif_dict)
+    
+    return new_product
+
+@api_router.get("/products", response_model=List[Product])
+async def get_products(
+    category: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all products"""
+    query = {}
+    if category:
+        query['category'] = category
+    if search:
+        query['name'] = {"$regex": search, "$options": "i"}
+    
+    products = await db.products.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for product in products:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(product.get(field), str):
+                product[field] = datetime.fromisoformat(product[field])
+    
+    return products
+
+@api_router.get("/products/{product_id}", response_model=Product)
+async def get_product(product_id: str):
+    """Get single product"""
+    product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(product.get(field), str):
+            product[field] = datetime.fromisoformat(product[field])
+    
     return product
 
-@api_router.post("/bookings", response_model=Booking)
-async def create_booking(booking_data: BookingCreate, current_user: User = Depends(get_current_user)):
-    booking = Booking(
-        user_id=current_user.id,
-        user_name=current_user.name,
-        user_email=current_user.email,
-        **booking_data.model_dump()
-    )
-    await db.bookings.insert_one(booking.model_dump())
-    return booking
-
-@api_router.get("/bookings", response_model=List[Booking])
-async def get_bookings(current_user: User = Depends(get_current_user)):
-    if current_user.role == "admin":
-        bookings = await db.bookings.find({}, {"_id": 0}).to_list(1000)
-    else:
-        bookings = await db.bookings.find({"user_id": current_user.id}, {"_id": 0}).to_list(1000)
-    return bookings
-
-@api_router.put("/bookings/{booking_id}", response_model=Booking)
-async def update_booking(booking_id: str, booking_update: BookingUpdate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
-    
-    update_data = {k: v for k, v in booking_update.model_dump().items() if v is not None}
+@api_router.put("/products/{product_id}", response_model=Product)
+async def update_product(
+    product_id: str,
+    product_update: ProductUpdate,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update product"""
+    update_data = {k: v for k, v in product_update.model_dump().items() if v is not None}
     if not update_data:
-        raise HTTPException(status_code=400, detail="No update data provided")
+        raise HTTPException(status_code=400, detail="No fields to update")
     
-    result = await db.bookings.find_one_and_update(
-        {"id": booking_id},
-        {"$set": update_data},
-        return_document=True
+    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    result = await db.products.update_one({"id": product_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    updated_product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(updated_product.get(field), str):
+            updated_product[field] = datetime.fromisoformat(updated_product[field])
+    
+    # Check for low stock
+    if updated_product.get('stock', 0) < 10:
+        notification = Notification(
+            notification_type=NotificationType.LOW_STOCK,
+            message=f"Low stock alert: {updated_product['name']} has only {updated_product['stock']} items left"
+        )
+        notif_dict = notification.model_dump()
+        notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+        await db.notifications.insert_one(notif_dict)
+    
+    return updated_product
+
+@api_router.delete("/products/{product_id}")
+async def delete_product(product_id: str, admin: dict = Depends(get_current_admin)):
+    """Delete product"""
+    result = await db.products.delete_one({"id": product_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    return {"message": "Product deleted successfully"}
+
+# ==================== ORDER MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/orders/create-razorpay-order")
+async def create_razorpay_order(order_data: OrderCreate):
+    """Create Razorpay order"""
+    try:
+        # Create order in Razorpay (amount in paise)
+        razorpay_order = razorpay_client.order.create({
+            "amount": int(order_data.total_amount * 100),  # Convert to paise
+            "currency": "INR",
+            "payment_capture": 1
+        })
+        
+        # Save order to database
+        order = Order(**order_data.model_dump())
+        order.razorpay_order_id = razorpay_order['id']
+        
+        order_dict = order.model_dump()
+        order_dict['created_at'] = order_dict['created_at'].isoformat()
+        order_dict['updated_at'] = order_dict['updated_at'].isoformat()
+        
+        await db.orders.insert_one(order_dict)
+        
+        # Create notification
+        notification = Notification(
+            notification_type=NotificationType.NEW_ORDER,
+            message=f"New order received: {order_data.customer_name} - ₹{order_data.total_amount}"
+        )
+        notif_dict = notification.model_dump()
+        notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+        await db.notifications.insert_one(notif_dict)
+        
+        return {
+            "order_id": order.id,
+            "razorpay_order_id": razorpay_order['id'],
+            "amount": razorpay_order['amount'],
+            "currency": razorpay_order['currency'],
+            "razorpay_key_id": os.environ['RAZORPAY_KEY_ID']
+        }
+    
+    except Exception as e:
+        logger.error(f"Order creation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/orders/verify-payment")
+async def verify_payment(
+    razorpay_order_id: str = Form(...),
+    razorpay_payment_id: str = Form(...),
+    razorpay_signature: str = Form(...)
+):
+    """Verify Razorpay payment"""
+    try:
+        # Verify signature
+        generated_signature = hmac.new(
+            os.environ['RAZORPAY_KEY_SECRET'].encode(),
+            f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        if generated_signature != razorpay_signature:
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
+        
+        # Update order status
+        order = await db.orders.find_one({"razorpay_order_id": razorpay_order_id}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Order not found")
+        
+        await db.orders.update_one(
+            {"razorpay_order_id": razorpay_order_id},
+            {
+                "$set": {
+                    "payment_status": PaymentStatus.SUCCESS.value,
+                    "payment_id": razorpay_payment_id,
+                    "order_status": OrderStatus.PROCESSING.value,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+            }
+        )
+        
+        # Save payment record
+        payment = Payment(
+            order_id=order['id'],
+            razorpay_payment_id=razorpay_payment_id,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_signature=razorpay_signature,
+            amount=order['total_amount'],
+            status=PaymentStatus.SUCCESS
+        )
+        
+        payment_dict = payment.model_dump()
+        payment_dict['created_at'] = payment_dict['created_at'].isoformat()
+        
+        await db.payments.insert_one(payment_dict)
+        
+        # Update product stock
+        for item in order['items']:
+            await db.products.update_one(
+                {"id": item['product_id']},
+                {"$inc": {"stock": -item['quantity']}}
+            )
+        
+        return {"success": True, "message": "Payment verified successfully"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/orders", response_model=List[Order])
+async def get_orders(
+    status: Optional[str] = None,
+    payment_status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get all orders"""
+    query = {}
+    if status:
+        query['order_status'] = status
+    if payment_status:
+        query['payment_status'] = payment_status
+    
+    orders = await db.orders.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for order in orders:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(order.get(field), str):
+                order[field] = datetime.fromisoformat(order[field])
+    
+    return orders
+
+@api_router.get("/orders/{order_id}", response_model=Order)
+async def get_order(order_id: str, admin: dict = Depends(get_current_admin)):
+    """Get single order"""
+    order = await db.orders.find_one({"id": order_id}, {"_id": 0})
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(order.get(field), str):
+            order[field] = datetime.fromisoformat(order[field])
+    
+    return order
+
+@api_router.put("/orders/{order_id}/status")
+async def update_order_status(
+    order_id: str,
+    order_status: str,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update order status"""
+    result = await db.orders.update_one(
+        {"id": order_id},
+        {
+            "$set": {
+                "order_status": order_status,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
     )
     
-    if not result:
-        raise HTTPException(status_code=404, detail="Booking not found")
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
     
-    result.pop("_id", None)
-    return Booking(**result)
+    return {"message": "Order status updated successfully"}
 
-@api_router.get("/testimonials", response_model=List[Testimonial])
-async def get_testimonials():
-    testimonials = await db.testimonials.find({}, {"_id": 0}).to_list(1000)
-    return testimonials
-
-@api_router.post("/testimonials", response_model=Testimonial)
-async def create_testimonial(testimonial_data: TestimonialCreate, current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+@api_router.get("/orders/export/csv")
+async def export_orders_csv(admin: dict = Depends(get_current_admin)):
+    """Export orders to CSV"""
+    orders = await db.orders.find({}, {"_id": 0}).to_list(1000)
     
-    testimonial = Testimonial(**testimonial_data.model_dump())
-    await db.testimonials.insert_one(testimonial.model_dump())
-    return testimonial
-
-@api_router.get("/analytics/dashboard", response_model=DashboardMetrics)
-async def get_dashboard_metrics(current_user: User = Depends(get_current_user)):
-    if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin access required")
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
     
-    total_bookings = await db.bookings.count_documents({})
-    pending_requests = await db.bookings.count_documents({"booking_status": "pending"})
+    # Write headers
+    writer.writerow([
+        "Order ID", "Customer Name", "Email", "Phone",
+        "Total Amount", "Order Status", "Payment Status",
+        "Order Date"
+    ])
     
-    bookings = await db.bookings.find({"payment_status": "completed"}, {"_id": 0}).to_list(10000)
-    revenue = sum([float(b.get("price", 0)) for b in bookings])
+    # Write data
+    for order in orders:
+        writer.writerow([
+            order['id'],
+            order['customer_name'],
+            order['customer_email'],
+            order['customer_phone'],
+            order['total_amount'],
+            order['order_status'],
+            order['payment_status'],
+            order['created_at']
+        ])
     
-    today = datetime.now(timezone.utc).date().isoformat()
-    todays_bookings = await db.bookings.find({}, {"_id": 0}).to_list(10000)
-    todays_sessions = sum([1 for b in todays_bookings if b.get("schedule", "").startswith(today)])
+    output.seek(0)
     
-    return DashboardMetrics(
-        total_bookings=total_bookings,
-        revenue=revenue,
-        pending_requests=pending_requests,
-        todays_sessions=todays_sessions
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=orders.csv"}
     )
 
+# ==================== USER MANAGEMENT ENDPOINTS ====================
+
+@api_router.get("/users", response_model=List[User])
+async def get_users(
+    skip: int = 0,
+    limit: int = 50,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get all users"""
+    users = await db.users.find({}, {"_id": 0, "password_hash": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for user in users:
+        if isinstance(user.get('created_at'), str):
+            user['created_at'] = datetime.fromisoformat(user['created_at'])
+    
+    return users
+
+@api_router.get("/users/{user_id}")
+async def get_user(user_id: str, admin: dict = Depends(get_current_admin)):
+    """Get single user with purchase history"""
+    user = await db.users.find_one({"id": user_id}, {"_id": 0, "password_hash": 0})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Get user's orders
+    orders = await db.orders.find({"user_id": user_id}, {"_id": 0}).to_list(100)
+    
+    if isinstance(user.get('created_at'), str):
+        user['created_at'] = datetime.fromisoformat(user['created_at'])
+    
+    return {
+        **user,
+        "orders": orders
+    }
+
+# ==================== ANALYTICS ENDPOINTS ====================
+
+@api_router.get("/analytics/dashboard", response_model=AnalyticsSummary)
+async def get_dashboard_analytics(admin: dict = Depends(get_current_admin)):
+    """Get dashboard analytics"""
+    # Total users
+    total_users = await db.users.count_documents({})
+    
+    # Total revenue and orders
+    orders = await db.orders.find({"payment_status": PaymentStatus.SUCCESS.value}, {"_id": 0}).to_list(10000)
+    total_revenue = sum(order['total_amount'] for order in orders)
+    total_orders = len(orders)
+    
+    # Orders today
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    orders_today = await db.orders.count_documents({
+        "created_at": {"$gte": today_start},
+        "payment_status": PaymentStatus.SUCCESS.value
+    })
+    
+    # Popular products (top 5)
+    all_orders = await db.orders.find({"payment_status": PaymentStatus.SUCCESS.value}, {"_id": 0}).to_list(10000)
+    product_sales = {}
+    for order in all_orders:
+        for item in order.get('items', []):
+            product_id = item['product_id']
+            product_sales[product_id] = product_sales.get(product_id, 0) + item['quantity']
+    
+    popular_product_ids = sorted(product_sales.items(), key=lambda x: x[1], reverse=True)[:5]
+    popular_products = []
+    for prod_id, quantity in popular_product_ids:
+        product = await db.products.find_one({"id": prod_id}, {"_id": 0})
+        if product:
+            popular_products.append({
+                "name": product['name'],
+                "sales": quantity
+            })
+    
+    # Most watched videos (top 5)
+    most_watched = await db.videos.find(
+        {},
+        {"_id": 0, "title": 1, "view_count": 1}
+    ).sort("view_count", -1).limit(5).to_list(5)
+    
+    # Payment success rate
+    all_payments = await db.payments.find({}, {"_id": 0}).to_list(10000)
+    total_payments = len(all_payments)
+    successful_payments = sum(1 for p in all_payments if p['status'] == PaymentStatus.SUCCESS.value)
+    payment_success_rate = (successful_payments / total_payments * 100) if total_payments > 0 else 0
+    
+    # Monthly revenue (last 6 months)
+    monthly_revenue = []
+    from datetime import timedelta
+    for i in range(6):
+        month_start = (datetime.utcnow().replace(day=1) - timedelta(days=30*i)).replace(day=1)
+        month_end = (month_start + timedelta(days=32)).replace(day=1)
+        
+        month_orders = await db.orders.find({
+            "payment_status": PaymentStatus.SUCCESS.value,
+            "created_at": {
+                "$gte": month_start.isoformat(),
+                "$lt": month_end.isoformat()
+            }
+        }, {"_id": 0}).to_list(10000)
+        
+        month_total = sum(order['total_amount'] for order in month_orders)
+        monthly_revenue.insert(0, {
+            "month": month_start.strftime("%b %Y"),
+            "revenue": month_total
+        })
+    
+    return AnalyticsSummary(
+        total_users=total_users,
+        total_revenue=total_revenue,
+        total_orders=total_orders,
+        orders_today=orders_today,
+        popular_products=popular_products,
+        most_watched_videos=most_watched,
+        payment_success_rate=payment_success_rate,
+        monthly_revenue=monthly_revenue
+    )
+
+# ==================== NOTIFICATION ENDPOINTS ====================
+
+@api_router.get("/notifications", response_model=List[Notification])
+async def get_notifications(
+    unread_only: bool = False,
+    skip: int = 0,
+    limit: int = 20,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get notifications"""
+    query = {}
+    if unread_only:
+        query['is_read'] = False
+    
+    notifications = await db.notifications.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for notif in notifications:
+        if isinstance(notif.get('created_at'), str):
+            notif['created_at'] = datetime.fromisoformat(notif['created_at'])
+    
+    return notifications
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(
+    notification_id: str,
+    admin: dict = Depends(get_current_admin)
+):
+    """Mark notification as read"""
+    result = await db.notifications.update_one(
+        {"id": notification_id},
+        {"$set": {"is_read": True}}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notification not found")
+    
+    return {"message": "Notification marked as read"}
+
+# ==================== BASIC ENDPOINTS ====================
+
+@api_router.get("/")
+async def root():
+    return {"message": "FitSphere Admin API", "version": "1.0.0"}
+
+@api_router.get("/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+# Include router
 app.include_router(api_router)
 
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
@@ -322,11 +828,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+@app.on_event("startup")
+async def startup_event():
+    """Create default admin on startup if none exists"""
+    admin_count = await db.admins.count_documents({})
+    if admin_count == 0:
+        logger.info("Creating default admin account...")
+        default_admin = Admin(
+            email="admin@fitsphere.com",
+            name="Admin",
+            password_hash=hash_password("Admin@123"),
+            role=UserRole.ADMIN
+        )
+        admin_dict = default_admin.model_dump()
+        admin_dict['created_at'] = admin_dict['created_at'].isoformat()
+        if admin_dict.get('last_login'):
+            admin_dict['last_login'] = admin_dict['last_login'].isoformat()
+        
+        await db.admins.insert_one(admin_dict)
+        logger.info(f"Default admin created: admin@fitsphere.com / Admin@123")
 
 @app.on_event("shutdown")
 async def shutdown_db_client():

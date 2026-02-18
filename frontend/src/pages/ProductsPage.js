@@ -1,108 +1,359 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { productAPI } from '../lib/api';
+import Layout from '../components/Layout';
+import { Plus, Edit, Trash2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { ShoppingCart, Package } from 'lucide-react';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
 
 export default function ProductsPage() {
-  const navigate = useNavigate();
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    price: 0,
+    discount: 0,
+    stock: 0,
+    category: '',
+    sku: '',
+    image_urls: [],
+  });
 
   useEffect(() => {
-    fetchProducts();
+    loadProducts();
   }, []);
 
-  const fetchProducts = async () => {
+  const loadProducts = async () => {
     try {
-      const response = await axios.get(`${API}/products`);
+      const response = await productAPI.getAll();
       setProducts(response.data);
     } catch (error) {
-      console.error('Error fetching products:', error);
       toast.error('Failed to load products');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleAddToCart = (product) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error('Please login to purchase products');
-      navigate('/login');
-      return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    try {
+      if (editingProduct) {
+        await productAPI.update(editingProduct.id, formData);
+        toast.success('Product updated successfully');
+      } else {
+        await productAPI.create(formData);
+        toast.success('Product created successfully');
+      }
+      setShowModal(false);
+      setEditingProduct(null);
+      resetForm();
+      loadProducts();
+    } catch (error) {
+      toast.error(error.response?.data?.detail || 'Operation failed');
     }
-    toast.success(`${product.name} added to cart!`);
+  };
+
+  const handleEdit = (product) => {
+    setEditingProduct(product);
+    setFormData({
+      name: product.name,
+      description: product.description,
+      price: product.price,
+      discount: product.discount,
+      stock: product.stock,
+      category: product.category,
+      sku: product.sku,
+      image_urls: product.image_urls || [],
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this product?')) return;
+
+    try {
+      await productAPI.delete(id);
+      toast.success('Product deleted successfully');
+      loadProducts();
+    } catch (error) {
+      toast.error('Failed to delete product');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      description: '',
+      price: 0,
+      discount: 0,
+      stock: 0,
+      category: '',
+      sku: '',
+      image_urls: [],
+    });
+  };
+
+  const finalPrice = (price, discount) => {
+    return (price - (price * discount) / 100).toFixed(2);
   };
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7]" data-testid="products-page">
-      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-white/80 border-b border-stone-100/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">F</span>
+    <Layout>
+      <div className="space-y-6" data-testid="products-page">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800">Products</h1>
+            <p className="text-gray-600 mt-1">Manage shop inventory</p>
+          </div>
+          <button
+            onClick={() => {
+              resetForm();
+              setEditingProduct(null);
+              setShowModal(true);
+            }}
+            data-testid="add-product-button"
+            className="bg-purple-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-purple-700 transition-all"
+          >
+            <Plus size={20} />
+            Add Product
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="text-center py-12">Loading products...</div>
+        ) : (
+          <div className="bg-white rounded-xl shadow-md overflow-hidden">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Product
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Price
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Stock
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {products.map((product) => (
+                  <tr key={product.id} data-testid={`product-row-${product.id}`}>
+                    <td className="px-6 py-4">
+                      <div>
+                        <div className="font-medium text-gray-800">{product.name}</div>
+                        <div className="text-sm text-gray-500">{product.sku}</div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-sm text-gray-700">{product.category}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div>
+                        {product.discount > 0 ? (
+                          <>
+                            <span className="text-sm line-through text-gray-400">
+                              ₹{product.price}
+                            </span>
+                            <span className="text-sm font-semibold text-gray-800 ml-2">
+                              ₹{finalPrice(product.price, product.discount)}
+                            </span>
+                            <span className="text-xs text-green-600 ml-1">
+                              ({product.discount}% off)
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-sm font-semibold text-gray-800">
+                            ₹{product.price}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`text-sm font-medium ${
+                            product.stock < 10 ? 'text-red-600' : 'text-gray-700'
+                          }`}
+                        >
+                          {product.stock}
+                        </span>
+                        {product.stock < 10 && (
+                          <AlertCircle size={16} className="text-red-500" />
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {product.is_active ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700">
+                          Active
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-700">
+                          Inactive
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          onClick={() => handleEdit(product)}
+                          data-testid={`edit-product-${product.id}`}
+                          className="text-blue-600 hover:text-blue-800"
+                        >
+                          <Edit size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(product.id)}
+                          data-testid={`delete-product-${product.id}`}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {products.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500">No products found</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Product Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
+            <h2 className="text-2xl font-bold mb-4">
+              {editingProduct ? 'Edit Product' : 'Add Product'}
+            </h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Product Name</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  required
+                />
               </div>
               <div>
-                <h1 className="text-2xl font-normal" style={{fontFamily: 'Tenor Sans, serif'}}>FitSphere</h1>
+                <label className="block text-sm font-medium mb-2">Description</label>
+                <textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  required
+                />
               </div>
-            </div>
-            <div className="hidden md:flex space-x-8">
-              <Link to="/" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Home</Link>
-              <Link to="/programs" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Programs</Link>
-              <Link to="/products" className="text-sm uppercase tracking-widest text-[#0f5132]">Shop</Link>
-              <Link to="/dashboard" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Dashboard</Link>
-            </div>
-            <Button onClick={() => navigate('/login')} className="bg-[#ff7f50] hover:bg-[#ff7f50]/90 text-white rounded-full px-6 py-3 text-sm uppercase tracking-widest">
-              Sign In
-            </Button>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Price (₹)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) =>
+                      setFormData({ ...formData, price: parseFloat(e.target.value) })
+                    }
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Discount (%)</label>
+                  <input
+                    type="number"
+                    value={formData.discount}
+                    onChange={(e) =>
+                      setFormData({ ...formData, discount: parseFloat(e.target.value) })
+                    }
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Stock</label>
+                  <input
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) =>
+                      setFormData({ ...formData, stock: parseInt(e.target.value) })
+                    }
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                    required
+                    min="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">SKU</label>
+                  <input
+                    type="text"
+                    value={formData.sku}
+                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg p-2"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Category</label>
+                <input
+                  type="text"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  className="w-full border border-gray-300 rounded-lg p-2"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="submit"
+                  data-testid="submit-product"
+                  className="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700"
+                >
+                  {editingProduct ? 'Update Product' : 'Create Product'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingProduct(null);
+                    resetForm();
+                  }}
+                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
           </div>
         </div>
-      </nav>
-
-      <div className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl text-[#0f5132] mb-4 uppercase tracking-widest" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="products-page-title">
-              Wellness Shop
-            </h1>
-            <p className="text-[#5a5a5a] text-base">Premium fitness gear and supplements for your journey</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {products.map((product, idx) => (
-              <Card key={product.id} className="bg-white border border-stone-100 overflow-hidden group hover:shadow-xl transition-all duration-500" data-testid={`product-card-${idx}`}>
-                <div className="aspect-square overflow-hidden">
-                  <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                </div>
-                <div className="p-6">
-                  <span className="inline-block px-4 py-1 bg-[#0f5132] text-white text-xs uppercase tracking-widest rounded-full mb-3">{product.category}</span>
-                  <h3 className="text-xl font-medium text-[#1a1a1a] mb-2" style={{fontFamily: 'Tenor Sans, serif'}}>{product.name}</h3>
-                  <p className="text-[#5a5a5a] text-sm mb-4">{product.description}</p>
-                  <div className="flex items-center justify-between mb-6">
-                    <span className="text-2xl font-bold text-[#0f5132]" data-testid={`product-price-${idx}`}>₹ {product.price}</span>
-                    <div className="flex items-center text-sm text-[#5a5a5a]">
-                      <Package className="w-4 h-4 mr-1" />
-                      <span>{product.stock} in stock</span>
-                    </div>
-                  </div>
-                  <Button 
-                    onClick={() => handleAddToCart(product)}
-                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest flex items-center justify-center gap-2"
-                    data-testid={`add-to-cart-${idx}`}
-                  >
-                    <ShoppingCart className="w-5 h-5" />
-                    Add to Cart
-                  </Button>
-                </div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
+      )}
+    </Layout>
   );
 }
