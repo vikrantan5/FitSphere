@@ -1,18 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { Calendar, Clock, LogOut, User } from 'lucide-react';
-
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+import { LogOut, User, Package, ShoppingBag, MessageCircle, Video, Dumbbell } from 'lucide-react';
+import { authAPI, ordersAPI } from '../utils/api';
 
 export default function UserDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
-  const [bookings, setBookings] = useState([]);
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -22,35 +22,29 @@ export default function UserDashboard() {
       return;
     }
     fetchUser();
-    fetchBookings();
+    fetchOrders();
   }, []);
 
   const fetchUser = async () => {
-    const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`${API}/auth/user/me`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      const response = await authAPI.getProfile();
       setUser(response.data);
+      localStorage.setItem('user', JSON.stringify(response.data));
     } catch (error) {
       console.error('Error fetching user:', error);
       toast.error('Session expired. Please login again.');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      localStorage.removeItem('userRole');
-      navigate('/login');
+      handleLogout();
     }
   };
 
-  const fetchBookings = async () => {
-    const token = localStorage.getItem('token');
+  const fetchOrders = async () => {
     try {
-      const response = await axios.get(`${API}/orders/user/my-orders`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setBookings(response.data);
+      const response = await ordersAPI.getMyOrders();
+      setOrders(response.data);
     } catch (error) {
       console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -58,139 +52,206 @@ export default function UserDashboard() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('userRole');
+    localStorage.removeItem('cart');
     toast.success('Logged out successfully');
     navigate('/login');
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
-      case 'processing':
-        return 'bg-blue-100 text-blue-800';
-      case 'completed':
-      case 'success':
-      case 'delivered':
-        return 'bg-green-100 text-green-800';
-      case 'cancelled':
-      case 'failed':
-        return 'bg-red-100 text-red-800';
-      case 'shipped':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const colors = {
+      pending: 'bg-yellow-100 text-yellow-800',
+      processing: 'bg-blue-100 text-blue-800',
+      shipped: 'bg-purple-100 text-purple-800',
+      delivered: 'bg-green-100 text-green-800',
+      cancelled: 'bg-red-100 text-red-800',
+      success: 'bg-green-100 text-green-800',
+      failed: 'bg-red-100 text-red-800'
+    };
+    return colors[status?.toLowerCase()] || 'bg-gray-100 text-gray-800';
   };
 
   return (
-    <div className="min-h-screen bg-[#fdfbf7]" data-testid="user-dashboard">
-      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-white/80 border-b border-stone-100/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">F</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-normal" style={{fontFamily: 'Tenor Sans, serif'}}>FitSphere</h1>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-md shadow-sm">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
+              <Dumbbell className="h-6 w-6 text-purple-600" />
+              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                FitSphere
+              </span>
             </div>
-            <div className="hidden md:flex space-x-8">
-              <Link to="/" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Home</Link>
-              <Link to="/programs" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Programs</Link>
-              <Link to="/products" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Shop</Link>
-              <Link to="/dashboard" className="text-sm uppercase tracking-widest text-[#0f5132]">Dashboard</Link>
-            </div>
-            <Button onClick={handleLogout} className="bg-[#ff7f50] hover:bg-[#ff7f50]/90 text-white rounded-full px-6 py-3 text-sm uppercase tracking-widest flex items-center gap-2" data-testid="logout-btn">
-              <LogOut className="w-4 h-4" />
+            <Button onClick={handleLogout} variant="outline" className="text-red-600 hover:text-red-700">
+              <LogOut className="h-4 w-4 mr-2" />
               Logout
             </Button>
           </div>
         </div>
-      </nav>
+      </div>
 
-      <div className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-12">
-            <Card className="bg-gradient-to-r from-[#0f5132] to-[#0f5132]/90 border-0 p-8 text-white" data-testid="user-info-card">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8" />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-normal mb-1" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="user-name">{user?.name}</h2>
-                  <p className="text-white/80" data-testid="user-email">{user?.email}</p>
-                </div>
+      <div className="container mx-auto px-4 py-8">
+        {/* Profile Header */}
+        <Card className="p-8 mb-8 bg-gradient-to-r from-purple-600 to-pink-600 text-white" data-testid="profile-header">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-6">
+              <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold">
+                {user?.name?.charAt(0) || 'U'}
               </div>
-            </Card>
-          </div>
-
-          <div className="mb-8">
-            <h3 className="text-3xl font-normal text-[#0f5132] mb-2" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="my-bookings-title">
-              My Orders
-            </h3>
-            <p className="text-[#5a5a5a]">Track your product orders</p>
-          </div>
-
-          {bookings.length === 0 ? (
-            <Card className="bg-white border border-stone-100 p-12 text-center" data-testid="no-bookings">
-              <div className="max-w-md mx-auto">
-                <Calendar className="w-16 h-16 text-[#0f5132] mx-auto mb-4" />
-                <h4 className="text-xl font-medium text-[#1a1a1a] mb-2" style={{fontFamily: 'Tenor Sans, serif'}}>No Orders Yet</h4>
-                <p className="text-[#5a5a5a] mb-6">Start shopping and place your first order</p>
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.name || 'User'}!</h1>
+                <p className="text-white/80">{user?.email}</p>
               </div>
-            </Card>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {bookings.map((order, idx) => (
-                <Card key={order.id} className="bg-white border border-stone-100 p-6 hover:shadow-lg transition-all" data-testid={`booking-card-${idx}`}>
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h4 className="text-lg font-medium text-[#1a1a1a]" style={{fontFamily: 'Tenor Sans, serif'}} data-testid={`booking-program-${idx}`}>
-                        Order #{order.id.slice(0, 8)}
-                      </h4>
-                      <p className="text-sm text-[#5a5a5a]">{order.customer_name}</p>
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(order.order_status)}`} data-testid={`booking-status-${idx}`}>
-                      {order.order_status}
-                    </span>
+            </div>
+          </div>
+        </Card>
+
+        {/* Quick Actions */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <Card
+            onClick={() => navigate('/user/sessions')}
+            className="p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-br from-purple-500 to-pink-500 text-white"
+          >
+            <Dumbbell className="h-10 w-10 mb-3" />
+            <h3 className="font-bold text-lg">Book Session</h3>
+            <p className="text-sm text-white/80">Find your perfect trainer</p>
+          </Card>
+
+          <Card
+            onClick={() => navigate('/user/videos')}
+            className="p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-br from-blue-500 to-cyan-500 text-white"
+          >
+            <Video className="h-10 w-10 mb-3" />
+            <h3 className="font-bold text-lg">Watch Videos</h3>
+            <p className="text-sm text-white/80">Explore workouts</p>
+          </Card>
+
+          <Card
+            onClick={() => navigate('/user/shop')}
+            className="p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-br from-teal-500 to-green-500 text-white"
+          >
+            <ShoppingBag className="h-10 w-10 mb-3" />
+            <h3 className="font-bold text-lg">Shop Products</h3>
+            <p className="text-sm text-white/80">Browse equipment</p>
+          </Card>
+
+          <Card
+            onClick={() => navigate('/user/chat')}
+            className="p-6 cursor-pointer hover:shadow-xl transition-all hover:scale-105 bg-gradient-to-br from-orange-500 to-red-500 text-white"
+          >
+            <MessageCircle className="h-10 w-10 mb-3" />
+            <h3 className="font-bold text-lg">Live Chat</h3>
+            <p className="text-sm text-white/80">Get support</p>
+          </Card>
+        </div>
+
+        {/* My Orders & Bookings */}
+        <Card className="p-6">
+          <Tabs defaultValue="orders" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="orders" data-testid="orders-tab">My Orders</TabsTrigger>
+              <TabsTrigger value="profile" data-testid="profile-tab">My Profile</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="orders" data-testid="orders-content">
+              <div className="space-y-4">
+                <h2 className="text-2xl font-bold mb-4">Order History</h2>
+                {loading ? (
+                  <div className="text-center py-8 text-gray-500">Loading orders...</div>
+                ) : orders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Package className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                    <p className="text-gray-500 mb-4">No orders yet</p>
+                    <Button onClick={() => navigate('/user/sessions')} className="bg-gradient-to-r from-purple-600 to-pink-600">
+                      Start Shopping
+                    </Button>
                   </div>
-                  <div className="space-y-3">
-                    <div className="border-t border-stone-200 pt-3">
-                      <p className="text-sm text-[#5a5a5a] mb-2">Items:</p>
-                      {order.items.map((item, itemIdx) => (
-                        <div key={itemIdx} className="flex justify-between text-sm mb-1">
-                          <span className="text-[#1a1a1a]">{item.product_name} x {item.quantity}</span>
-                          <span className="text-[#1a1a1a]">₹{item.price}</span>
+                ) : (
+                  orders.map((order) => (
+                    <Card key={order.id} className="p-6" data-testid="order-card">
+                      <div className="flex items-start justify-between mb-4">
+                        <div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <h3 className="font-bold text-lg">Order #{order.id.slice(0, 8)}</h3>
+                            <Badge className={getStatusColor(order.order_status)}>
+                              {order.order_status}
+                            </Badge>
+                            <Badge className={getStatusColor(order.payment_status)}>
+                              Payment: {order.payment_status}
+                            </Badge>
+                          </div>
+                          <p className="text-sm text-gray-600">
+                            {new Date(order.created_at).toLocaleDateString('en-IN', {
+                              year: 'numeric',
+                              month: 'long',
+                              day: 'numeric'
+                            })}
+                          </p>
                         </div>
-                      ))}
-                    </div>
-                    <div className="border-t border-stone-200 pt-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-medium text-[#1a1a1a]">Total Amount:</span>
-                        <span className="text-lg font-bold text-[#0f5132]">₹{order.total_amount}</span>
+                        <div className="text-right">
+                          <div className="text-2xl font-bold text-purple-600">₹{order.total_amount}</div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center text-sm">
-                      <Clock className="w-4 h-4 mr-2 text-[#0f5132]" />
-                      <span className="text-[#5a5a5a]">Ordered on: </span>
-                      <span className="ml-1 text-[#1a1a1a]">{new Date(order.created_at).toLocaleDateString('en-US', { dateStyle: 'medium' })}</span>
-                    </div>
-                    <div className="pt-3 border-t border-stone-200">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm text-[#5a5a5a]">Payment:</span>
-                        <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wider ${getStatusColor(order.payment_status)}`} data-testid={`payment-status-${idx}`}>
-                          {order.payment_status}
-                        </span>
+
+                      <div className="border-t pt-4">
+                        <h4 className="font-semibold mb-2">Items:</h4>
+                        <div className="space-y-2">
+                          {order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span>{item.product_name} × {item.quantity}</span>
+                              <span className="font-semibold">₹{(item.price * item.quantity).toFixed(2)}</span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+
+                      <div className="border-t mt-4 pt-4">
+                        <div className="text-sm text-gray-600">
+                          <p><strong>Customer:</strong> {order.customer_name}</p>
+                          <p><strong>Email:</strong> {order.customer_email}</p>
+                          <p><strong>Phone:</strong> {order.customer_phone}</p>
+                          <p><strong>Address:</strong> {order.shipping_address}</p>
+                        </div>
+                      </div>
+                    </Card>
+                  ))
+                )}
+              </div>
+            </TabsContent>
+
+            <TabsContent value="profile" data-testid="profile-content">
+              <div className="space-y-6">
+                <h2 className="text-2xl font-bold mb-4">Profile Information</h2>
+                <Card className="p-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Name</label>
+                      <p className="text-lg font-semibold">{user?.name}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Email</label>
+                      <p className="text-lg font-semibold">{user?.email}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Phone</label>
+                      <p className="text-lg font-semibold">{user?.phone || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Member Since</label>
+                      <p className="text-lg font-semibold">
+                        {user?.created_at && new Date(user.created_at).toLocaleDateString('en-IN', {
+                          year: 'numeric',
+                          month: 'long',
+                          day: 'numeric'
+                        })}
+                      </p>
                     </div>
                   </div>
                 </Card>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </Card>
       </div>
     </div>
   );

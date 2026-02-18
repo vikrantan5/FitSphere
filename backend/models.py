@@ -256,3 +256,37 @@ class AnalyticsSummary(BaseModel):
     most_watched_videos: List[dict]
     payment_success_rate: float
     monthly_revenue: List[dict]
+
+# Chat Message Models
+class ChatMessage(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    sender_id: str
+    sender_name: str
+    sender_role: UserRole
+    receiver_id: Optional[str] = None  # None means broadcast to admin
+    message: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    is_read: bool = False
+
+class ChatMessageCreate(BaseModel):
+    receiver_id: Optional[str] = None
+    message: str
+
+# Testimonial Models
+class TestimonialCreate(BaseModel):
+    rating: int  # 1-5
+    comment: str
+    service_type: str  # session, product, video
+
+class Testimonial(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    user_email: str
+    rating: int
+    comment: str
+    service_type: str
+    is_approved: bool = False
+    created_at: datetime = Field(default_factory=datetime.utcnow)

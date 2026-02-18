@@ -13,6 +13,13 @@ import OrdersPage from './pages/OrdersPage';
 import UsersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
 import UserDashboard from './pages/UserDashboard';
+import UserLandingPage from './pages/UserLandingPage';
+import UserSessionsPage from './pages/UserSessionsPage';
+import UserVideosPage from './pages/UserVideosPage';
+import UserShopPage from './pages/UserShopPage';
+import UserCartPage from './pages/UserCartPage';
+import UserChatPage from './pages/UserChatPage';
+import UserTestimonialsPage from './pages/UserTestimonialsPage';
 
 // Protected Route Component for Admin
 function AdminRoute({ children }) {
@@ -190,11 +197,61 @@ function App() {
             </UserRoute>
           }
         />
+        <Route
+          path="/user/sessions"
+          element={
+            <UserRoute>
+              <UserSessionsPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/videos"
+          element={
+            <UserRoute>
+              <UserVideosPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/shop"
+          element={
+            <UserRoute>
+              <UserShopPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/cart"
+          element={
+            <UserRoute>
+              <UserCartPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/chat"
+          element={
+            <UserRoute>
+              <UserChatPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/testimonials"
+          element={
+            <UserRoute>
+              <UserTestimonialsPage />
+            </UserRoute>
+          }
+        />
+
+        {/* Public Landing Page */}
+        <Route path="/" element={<UserLandingPage />} />
 
         {/* Default Route */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/dashboard" element={<Navigate to="/login" replace />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );
