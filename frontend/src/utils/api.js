@@ -27,6 +27,7 @@ api.interceptors.request.use(
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   getMe: () => api.get('/auth/me'),
+  getProfile: () => api.get('/auth/user/me'),
 };
 
 // Video APIs
@@ -87,6 +88,18 @@ export const analyticsAPI = {
 export const notificationAPI = {
   getAll: (params) => api.get('/notifications', { params }),
   markRead: (id) => api.put(`/notifications/${id}/read`),
+};
+
+// Chat APIs
+export const chatAPI = {
+  getMessages: (params) => api.get('/chat/messages', { params }),
+  markRead: (messageId) => api.put(`/chat/messages/${messageId}/read`),
+};
+
+// Testimonial APIs
+export const testimonialAPI = {
+  create: (data) => api.post('/testimonials', data),
+  getAll: (params) => api.get('/testimonials', { params }),
 };
 
 export default api;
