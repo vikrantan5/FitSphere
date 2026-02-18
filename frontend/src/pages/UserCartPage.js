@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dumbbell, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { ordersAPI } from '../utils/api';
+import { orderAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserCartPage() {
@@ -132,7 +132,7 @@ export default function UserCartPage() {
         shipping_address: customerInfo.address
       };
 
-      const response = await ordersAPI.createOrder(orderData);
+      const response = await orderAPI.createOrder(orderData);
       
       // Check if Razorpay is loaded
       if (!window.Razorpay) {
@@ -157,7 +157,7 @@ export default function UserCartPage() {
             verifyData.append('razorpay_payment_id', paymentResponse.razorpay_payment_id);
             verifyData.append('razorpay_signature', paymentResponse.razorpay_signature);
 
-            await ordersAPI.verifyPayment(verifyData);
+            await orderAPI.verifyPayment(verifyData);
             
             // Clear cart
             localStorage.removeItem('cart');

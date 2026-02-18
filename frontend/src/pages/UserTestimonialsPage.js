@@ -6,7 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Dumbbell, Star, Plus } from 'lucide-react';
-import { testimonialsAPI } from '../utils/api';
+import { testimonialAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserTestimonialsPage() {
@@ -27,7 +27,7 @@ export default function UserTestimonialsPage() {
 
   const fetchTestimonials = async () => {
     try {
-      const response = await testimonialsAPI.getAll({ approved_only: true, limit: 50 });
+      const response = await testimonialAPI.getAll({ approved_only: true, limit: 50 });
       setTestimonials(response.data);
     } catch (error) {
       toast.error('Failed to load testimonials');
@@ -44,7 +44,7 @@ export default function UserTestimonialsPage() {
 
     setSubmitting(true);
     try {
-      await testimonialsAPI.create(newTestimonial);
+      await testimonialAPI.create(newTestimonial);
       toast.success('Thank you for your review! It will be published after approval.');
       setIsModalOpen(false);
       setNewTestimonial({ rating: 5, comment: '', service_type: 'session' });

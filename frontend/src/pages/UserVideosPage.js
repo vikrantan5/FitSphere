@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Play, Clock, Eye, Dumbbell, X, Search } from 'lucide-react';
-import { videosAPI } from '../utils/api';
+import { videoAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserVideosPage() {
@@ -30,7 +30,7 @@ export default function UserVideosPage() {
 
   const fetchVideos = async () => {
     try {
-      const response = await videosAPI.getAll({ limit: 100 });
+      const response = await videoAPI.getAll({ limit: 100 });
       setVideos(response.data);
     } catch (error) {
       toast.error('Failed to load videos');

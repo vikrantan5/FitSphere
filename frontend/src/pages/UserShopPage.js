@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dumbbell, ShoppingCart, Search, Package } from 'lucide-react';
-import { productsAPI } from '../utils/api';
+import { productAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserShopPage() {
@@ -35,7 +35,7 @@ export default function UserShopPage() {
 
   const fetchProducts = async () => {
     try {
-      const response = await productsAPI.getAll({ limit: 100 });
+      const response = await productAPI.getAll({ limit: 100 });
       setProducts(response.data);
     } catch (error) {
       toast.error('Failed to load products');

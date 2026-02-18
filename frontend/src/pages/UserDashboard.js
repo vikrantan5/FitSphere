@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { LogOut, User, Package, ShoppingBag, MessageCircle, Video, Dumbbell } from 'lucide-react';
-import { authAPI, ordersAPI } from '../utils/api';
+import { authAPI, orderAPI } from '../utils/api';
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -39,7 +39,7 @@ export default function UserDashboard() {
 
   const fetchOrders = async () => {
     try {
-      const response = await ordersAPI.getMyOrders();
+      const response = await orderAPI.getMyOrders();
       setOrders(response.data);
     } catch (error) {
       console.error('Error fetching orders:', error);

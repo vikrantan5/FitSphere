@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Play, ShoppingBag, Video, Star, MessageCircle, Dumbbell, Heart, Users, Award } from 'lucide-react';
-import { videosAPI, productsAPI, testimonialsAPI } from '../utils/api';
+import { videoAPI, productAPI, testimonialAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function LandingPage() {
@@ -20,9 +20,9 @@ export default function LandingPage() {
   const fetchData = async () => {
     try {
       const [videosRes, sessionsRes, testimonialsRes] = await Promise.all([
-        videosAPI.getAll({ limit: 4 }),
-        productsAPI.getAll({ limit: 4 }),
-        testimonialsAPI.getAll({ limit: 6, approved_only: true })
+        videoAPI.getAll({ limit: 4 }),
+        productAPI.getAll({ limit: 4 }),
+        testimonialAPI.getAll({ limit: 6, approved_only: true })
       ]);
       
       setVideos(videosRes.data);

@@ -290,3 +290,128 @@ class Testimonial(BaseModel):
     service_type: str
     is_approved: bool = False
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Trainer Models
+class TrainerCreate(BaseModel):
+    name: str
+    email: EmailStr
+    phone: str
+    specialization: str
+    experience_years: int
+    bio: str
+    image_url: Optional[str] = None
+    certifications: List[str] = []
+
+class Trainer(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    email: EmailStr
+    phone: str
+    specialization: str
+    experience_years: int
+    bio: str
+    image_url: Optional[str] = None
+    certifications: List[str] = []
+    is_active: bool = True
+    rating: float = 0.0
+    total_sessions: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class TrainerUpdate(BaseModel):
+    name: Optional[str] = None
+    email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    specialization: Optional[str] = None
+    experience_years: Optional[int] = None
+    bio: Optional[str] = None
+    image_url: Optional[str] = None
+    certifications: Optional[List[str]] = None
+    is_active: Optional[bool] = None
+
+# Program Models
+class ProgramCreate(BaseModel):
+    title: str
+    description: str
+    category: str
+    duration_weeks: int
+    price: float
+    difficulty: VideoDifficulty
+    trainer_id: str
+    image_url: Optional[str] = None
+    video_ids: List[str] = []
+    sessions_per_week: int = 3
+
+class Program(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    description: str
+    category: str
+    duration_weeks: int
+    price: float
+    difficulty: VideoDifficulty
+    trainer_id: str
+    image_url: Optional[str] = None
+    video_ids: List[str] = []
+    sessions_per_week: int = 3
+    is_active: bool = True
+    enrolled_count: int = 0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProgramUpdate(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    duration_weeks: Optional[int] = None
+    price: Optional[float] = None
+    difficulty: Optional[VideoDifficulty] = None
+    trainer_id: Optional[str] = None
+    image_url: Optional[str] = None
+    video_ids: Optional[List[str]] = None
+    sessions_per_week: Optional[int] = None
+    is_active: Optional[bool] = None
+
+# Booking/Session Models
+class BookingStatus(str, Enum):
+    PENDING = "pending"
+    CONFIRMED = "confirmed"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+
+class BookingCreate(BaseModel):
+    program_id: str
+    trainer_id: str
+    booking_date: str  # ISO format date
+    time_slot: str  # e.g., "09:00-10:00"
+    notes: Optional[str] = None
+
+class Booking(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    user_name: str
+    user_email: EmailStr
+    user_phone: Optional[str] = None
+    program_id: str
+    program_title: str
+    trainer_id: str
+    trainer_name: str
+    booking_date: str
+    time_slot: str
+    status: BookingStatus = BookingStatus.PENDING
+    notes: Optional[str] = None
+    payment_status: PaymentStatus = PaymentStatus.PENDING
+    payment_id: Optional[str] = None
+    razorpay_order_id: Optional[str] = None
+    amount: float = 0.0
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class BookingUpdate(BaseModel):
+    status: Optional[BookingStatus] = None
+    notes: Optional[str] = None
+    booking_date: Optional[str] = None
+    time_slot: Optional[str] = None

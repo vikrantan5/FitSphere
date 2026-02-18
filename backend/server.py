@@ -17,9 +17,8 @@ import socketio
 
 # Import local modules
 from models import *
-from auth import hash_password, verify_password, create_access_token, get_current_admin
+from auth import hash_password, verify_password, create_access_token, get_current_admin, get_current_user, get_current_user_or_admin
 from bunny_cdn import upload_to_bunny_cdn, delete_from_bunny_cdn
-from auth import get_current_admin as get_current_user
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -1022,6 +1021,608 @@ async def delete_testimonial(
         raise HTTPException(status_code=404, detail="Testimonial not found")
     
     return {"message": "Testimonial deleted successfully"}
+
+# ==================== USER AUTH ENDPOINTS ====================
+
+@api_router.post("/auth/register", response_model=UserLoginResponse)
+async def user_register(user_data: UserRegisterRequest):
+    """Register new user"""
+    # Check if user already exists
+    existing = await db.users.find_one({"email": user_data.email}, {"_id": 0})
+    if existing:
+        raise HTTPException(status_code=400, detail="User with this email already exists")
+    
+    user = User(
+        email=user_data.email,
+        name=user_data.name,
+        phone=user_data.phone,
+        password_hash=hash_password(user_data.password),
+        role=UserRole.USER
+    )
+    
+    user_dict = user.model_dump()
+    user_dict['created_at'] = user_dict['created_at'].isoformat()
+    
+    await db.users.insert_one(user_dict)
+    
+    # Create access token
+    access_token = create_access_token(
+        data={
+            "sub": user.id,
+            "email": user.email,
+            "role": user.role.value
+        }
+    )
+    
+    return UserLoginResponse(
+        access_token=access_token,
+        user_id=user.id,
+        email=user.email,
+        name=user.name,
+        role=user.role.value
+    )
+
+@api_router.post("/auth/user/login", response_model=UserLoginResponse)
+async def user_login(credentials: UserLoginRequest):
+    """User login endpoint"""
+    user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
+    
+    if not user or not verify_password(credentials.password, user['password_hash']):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
+    
+    if not user.get('is_active', True):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account is disabled"
+        )
+    
+    # Create access token
+    access_token = create_access_token(
+        data={
+            "sub": user['id'],
+            "email": user['email'],
+            "role": user['role']
+        }
+    )
+    
+    return UserLoginResponse(
+        access_token=access_token,
+        user_id=user['id'],
+        email=user['email'],
+        name=user['name'],
+        role=user['role']
+    )
+
+@api_router.get("/auth/user/me")
+async def get_current_user_info(user: dict = Depends(get_current_user)):
+    """Get current user information"""
+    user_data = await db.users.find_one({"id": user['user_id']}, {"_id": 0, "password_hash": 0})
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user_data
+
+# ==================== TRAINER MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/trainers", response_model=Trainer)
+async def create_trainer(trainer: TrainerCreate, admin: dict = Depends(get_current_admin)):
+    """Create new trainer"""
+    new_trainer = Trainer(**trainer.model_dump())
+    
+    trainer_dict = new_trainer.model_dump()
+    trainer_dict['created_at'] = trainer_dict['created_at'].isoformat()
+    trainer_dict['updated_at'] = trainer_dict['updated_at'].isoformat()
+    
+    await db.trainers.insert_one(trainer_dict)
+    
+    return new_trainer
+
+@api_router.get("/trainers", response_model=List[Trainer])
+async def get_trainers(
+    specialization: Optional[str] = None,
+    is_active: bool = True,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all trainers"""
+    query = {"is_active": is_active} if is_active else {}
+    if specialization:
+        query['specialization'] = specialization
+    
+    trainers = await db.trainers.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for trainer in trainers:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(trainer.get(field), str):
+                trainer[field] = datetime.fromisoformat(trainer[field])
+    
+    return trainers
+
+@api_router.get("/trainers/{trainer_id}", response_model=Trainer)
+async def get_trainer(trainer_id: str):
+    """Get single trainer"""
+    trainer = await db.trainers.find_one({"id": trainer_id}, {"_id": 0})
+    if not trainer:
+        raise HTTPException(status_code=404, detail="Trainer not found")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(trainer.get(field), str):
+            trainer[field] = datetime.fromisoformat(trainer[field])
+    
+    return trainer
+
+@api_router.put("/trainers/{trainer_id}", response_model=Trainer)
+async def update_trainer(
+    trainer_id: str,
+    trainer_update: TrainerUpdate,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update trainer"""
+    update_data = {k: v for k, v in trainer_update.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    result = await db.trainers.update_one({"id": trainer_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Trainer not found")
+    
+    updated_trainer = await db.trainers.find_one({"id": trainer_id}, {"_id": 0})
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(updated_trainer.get(field), str):
+            updated_trainer[field] = datetime.fromisoformat(updated_trainer[field])
+    
+    return updated_trainer
+
+@api_router.delete("/trainers/{trainer_id}")
+async def delete_trainer(trainer_id: str, admin: dict = Depends(get_current_admin)):
+    """Delete trainer"""
+    result = await db.trainers.delete_one({"id": trainer_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Trainer not found")
+    
+    return {"message": "Trainer deleted successfully"}
+
+# ==================== PROGRAM MANAGEMENT ENDPOINTS ====================
+
+@api_router.post("/programs", response_model=Program)
+async def create_program(program: ProgramCreate, admin: dict = Depends(get_current_admin)):
+    """Create new program"""
+    # Verify trainer exists
+    trainer = await db.trainers.find_one({"id": program.trainer_id}, {"_id": 0})
+    if not trainer:
+        raise HTTPException(status_code=404, detail="Trainer not found")
+    
+    new_program = Program(**program.model_dump())
+    
+    program_dict = new_program.model_dump()
+    program_dict['created_at'] = program_dict['created_at'].isoformat()
+    program_dict['updated_at'] = program_dict['updated_at'].isoformat()
+    
+    await db.programs.insert_one(program_dict)
+    
+    return new_program
+
+@api_router.get("/programs", response_model=List[Program])
+async def get_programs(
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    trainer_id: Optional[str] = None,
+    is_active: bool = True,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get all programs"""
+    query = {"is_active": is_active} if is_active else {}
+    if category:
+        query['category'] = category
+    if difficulty:
+        query['difficulty'] = difficulty
+    if trainer_id:
+        query['trainer_id'] = trainer_id
+    
+    programs = await db.programs.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for program in programs:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(program.get(field), str):
+                program[field] = datetime.fromisoformat(program[field])
+    
+    return programs
+
+@api_router.get("/programs/{program_id}", response_model=Program)
+async def get_program(program_id: str):
+    """Get single program"""
+    program = await db.programs.find_one({"id": program_id}, {"_id": 0})
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(program.get(field), str):
+            program[field] = datetime.fromisoformat(program[field])
+    
+    return program
+
+@api_router.put("/programs/{program_id}", response_model=Program)
+async def update_program(
+    program_id: str,
+    program_update: ProgramUpdate,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update program"""
+    update_data = {k: v for k, v in program_update.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    result = await db.programs.update_one({"id": program_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Program not found")
+    
+    updated_program = await db.programs.find_one({"id": program_id}, {"_id": 0})
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(updated_program.get(field), str):
+            updated_program[field] = datetime.fromisoformat(updated_program[field])
+    
+    return updated_program
+
+@api_router.delete("/programs/{program_id}")
+async def delete_program(program_id: str, admin: dict = Depends(get_current_admin)):
+    """Delete program"""
+    result = await db.programs.delete_one({"id": program_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Program not found")
+    
+    return {"message": "Program deleted successfully"}
+
+# ==================== BOOKING/SESSION ENDPOINTS ====================
+
+@api_router.post("/bookings", response_model=Booking)
+async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_current_user)):
+    """Create new booking"""
+    # Get user, program, and trainer details
+    user_data = await db.users.find_one({"id": user['user_id']}, {"_id": 0})
+    program = await db.programs.find_one({"id": booking_data.program_id}, {"_id": 0})
+    trainer = await db.trainers.find_one({"id": booking_data.trainer_id}, {"_id": 0})
+    
+    if not user_data:
+        raise HTTPException(status_code=404, detail="User not found")
+    if not program:
+        raise HTTPException(status_code=404, detail="Program not found")
+    if not trainer:
+        raise HTTPException(status_code=404, detail="Trainer not found")
+    
+    # Check if slot is available
+    existing_booking = await db.bookings.find_one({
+        "trainer_id": booking_data.trainer_id,
+        "booking_date": booking_data.booking_date,
+        "time_slot": booking_data.time_slot,
+        "status": {"$in": [BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value]}
+    }, {"_id": 0})
+    
+    if existing_booking:
+        raise HTTPException(status_code=400, detail="This time slot is already booked")
+    
+    booking = Booking(
+        user_id=user['user_id'],
+        user_name=user_data['name'],
+        user_email=user_data['email'],
+        user_phone=user_data.get('phone'),
+        program_id=booking_data.program_id,
+        program_title=program['title'],
+        trainer_id=booking_data.trainer_id,
+        trainer_name=trainer['name'],
+        booking_date=booking_data.booking_date,
+        time_slot=booking_data.time_slot,
+        notes=booking_data.notes,
+        amount=program['price']
+    )
+    
+    booking_dict = booking.model_dump()
+    booking_dict['created_at'] = booking_dict['created_at'].isoformat()
+    booking_dict['updated_at'] = booking_dict['updated_at'].isoformat()
+    
+    await db.bookings.insert_one(booking_dict)
+    
+    # Create notification for admin
+    notification = Notification(
+        notification_type=NotificationType.NEW_ORDER,
+        message=f"New booking: {user_data['name']} booked {program['title']} on {booking_data.booking_date}"
+    )
+    notif_dict = notification.model_dump()
+    notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+    await db.notifications.insert_one(notif_dict)
+    
+    return booking
+
+@api_router.get("/bookings", response_model=List[Booking])
+async def get_bookings(
+    status: Optional[str] = None,
+    trainer_id: Optional[str] = None,
+    booking_date: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get all bookings (admin only)"""
+    query = {}
+    if status:
+        query['status'] = status
+    if trainer_id:
+        query['trainer_id'] = trainer_id
+    if booking_date:
+        query['booking_date'] = booking_date
+    
+    bookings = await db.bookings.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for booking in bookings:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(booking.get(field), str):
+                booking[field] = datetime.fromisoformat(booking[field])
+    
+    return bookings
+
+@api_router.get("/bookings/user/my-bookings", response_model=List[Booking])
+async def get_my_bookings(
+    status: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get user's own bookings"""
+    query = {"user_id": user['user_id']}
+    if status:
+        query['status'] = status
+    
+    bookings = await db.bookings.find(query, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for booking in bookings:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(booking.get(field), str):
+                booking[field] = datetime.fromisoformat(booking[field])
+    
+    return bookings
+
+@api_router.get("/bookings/{booking_id}", response_model=Booking)
+async def get_booking(booking_id: str, user: dict = Depends(get_current_user_or_admin)):
+    """Get single booking"""
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Check if user owns this booking or is admin
+    if user['role'] == 'user' and booking['user_id'] != user['user_id']:
+        raise HTTPException(status_code=403, detail="Not authorized to view this booking")
+    
+    for field in ['created_at', 'updated_at']:
+        if isinstance(booking.get(field), str):
+            booking[field] = datetime.fromisoformat(booking[field])
+    
+    return booking
+
+@api_router.put("/bookings/{booking_id}/status")
+async def update_booking_status(
+    booking_id: str,
+    booking_update: BookingUpdate,
+    admin: dict = Depends(get_current_admin)
+):
+    """Update booking status (admin only)"""
+    update_data = {k: v for k, v in booking_update.model_dump().items() if v is not None}
+    if not update_data:
+        raise HTTPException(status_code=400, detail="No fields to update")
+    
+    update_data['updated_at'] = datetime.utcnow().isoformat()
+    
+    result = await db.bookings.update_one({"id": booking_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    return {"message": "Booking updated successfully"}
+
+@api_router.get("/bookings/trainer/{trainer_id}/available-slots")
+async def get_available_slots(
+    trainer_id: str,
+    booking_date: str
+):
+    """Get available time slots for a trainer on a specific date"""
+    # Define all possible slots
+    all_slots = [
+        "09:00-10:00", "10:00-11:00", "11:00-12:00",
+        "14:00-15:00", "15:00-16:00", "16:00-17:00",
+        "17:00-18:00", "18:00-19:00"
+    ]
+    
+    # Get booked slots
+    booked_bookings = await db.bookings.find({
+        "trainer_id": trainer_id,
+        "booking_date": booking_date,
+        "status": {"$in": [BookingStatus.PENDING.value, BookingStatus.CONFIRMED.value]}
+    }, {"_id": 0, "time_slot": 1}).to_list(100)
+    
+    booked_slots = [booking['time_slot'] for booking in booked_bookings]
+    
+    available_slots = [slot for slot in all_slots if slot not in booked_slots]
+    
+    return {
+        "date": booking_date,
+        "trainer_id": trainer_id,
+        "available_slots": available_slots,
+        "booked_slots": booked_slots
+    }
+
+@api_router.post("/bookings/{booking_id}/create-payment")
+async def create_booking_payment(booking_id: str, user: dict = Depends(get_current_user)):
+    """Create Razorpay payment for booking"""
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    if booking['user_id'] != user['user_id']:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    
+    try:
+        # Create order in Razorpay
+        razorpay_order = razorpay_client.order.create({
+            "amount": int(booking['amount'] * 100),  # Convert to paise
+            "currency": "INR",
+            "payment_capture": 1
+        })
+        
+        # Update booking with razorpay order ID
+        await db.bookings.update_one(
+            {"id": booking_id},
+            {"$set": {"razorpay_order_id": razorpay_order['id']}}
+        )
+        
+        return {
+            "booking_id": booking_id,
+            "razorpay_order_id": razorpay_order['id'],
+            "amount": razorpay_order['amount'],
+            "currency": razorpay_order['currency'],
+            "razorpay_key_id": os.environ['RAZORPAY_KEY_ID']
+        }
+    
+    except Exception as e:
+        logger.error(f"Payment creation error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/bookings/{booking_id}/verify-payment")
+async def verify_booking_payment(
+    booking_id: str,
+    razorpay_order_id: str = Form(...),
+    razorpay_payment_id: str = Form(...),
+    razorpay_signature: str = Form(...),
+    user: dict = Depends(get_current_user)
+):
+    """Verify Razorpay payment for booking"""
+    try:
+        # Verify signature
+        generated_signature = hmac.new(
+            os.environ['RAZORPAY_KEY_SECRET'].encode(),
+            f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+            hashlib.sha256
+        ).hexdigest()
+        
+        if generated_signature != razorpay_signature:
+            raise HTTPException(status_code=400, detail="Invalid payment signature")
+        
+        # Update booking
+        booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found")
+        
+        await db.bookings.update_one(
+            {"id": booking_id},
+            {
+                "$set": {
+                    "payment_status": PaymentStatus.SUCCESS.value,
+                    "payment_id": razorpay_payment_id,
+                    "status": BookingStatus.CONFIRMED.value,
+                    "updated_at": datetime.utcnow().isoformat()
+                }
+            }
+        )
+        
+        # Save payment record
+        payment = Payment(
+            order_id=booking_id,
+            razorpay_payment_id=razorpay_payment_id,
+            razorpay_order_id=razorpay_order_id,
+            razorpay_signature=razorpay_signature,
+            amount=booking['amount'],
+            status=PaymentStatus.SUCCESS
+        )
+        
+        payment_dict = payment.model_dump()
+        payment_dict['created_at'] = payment_dict['created_at'].isoformat()
+        
+        await db.payments.insert_one(payment_dict)
+        
+        # Update trainer session count
+        await db.trainers.update_one(
+            {"id": booking['trainer_id']},
+            {"$inc": {"total_sessions": 1}}
+        )
+        
+        # Update program enrollment count
+        await db.programs.update_one(
+            {"id": booking['program_id']},
+            {"$inc": {"enrolled_count": 1}}
+        )
+        
+        return {"success": True, "message": "Payment verified and booking confirmed"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Payment verification error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/bookings/export/csv")
+async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
+    """Export bookings to CSV"""
+    bookings = await db.bookings.find({}, {"_id": 0}).to_list(1000)
+    
+    # Create CSV in memory
+    output = io.StringIO()
+    writer = csv.writer(output)
+    
+    # Write headers
+    writer.writerow([
+        "Booking ID", "User Name", "Email", "Phone",
+        "Program", "Trainer", "Date", "Time Slot",
+        "Status", "Payment Status", "Amount", "Created At"
+    ])
+    
+    # Write data
+    for booking in bookings:
+        writer.writerow([
+            booking['id'],
+            booking['user_name'],
+            booking['user_email'],
+            booking.get('user_phone', ''),
+            booking['program_title'],
+            booking['trainer_name'],
+            booking['booking_date'],
+            booking['time_slot'],
+            booking['status'],
+            booking['payment_status'],
+            booking['amount'],
+            booking['created_at']
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bookings.csv"}
+    )
+
+@api_router.get("/orders/user/my-orders", response_model=List[Order])
+async def get_my_orders(
+    skip: int = 0,
+    limit: int = 50,
+    user: dict = Depends(get_current_user)
+):
+    """Get user's own orders"""
+    orders = await db.orders.find(
+        {"user_id": user['user_id']},
+        {"_id": 0}
+    ).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for order in orders:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(order.get(field), str):
+                order[field] = datetime.fromisoformat(order[field])
+    
+    return orders
 
 # ==================== BASIC ENDPOINTS ====================
 
