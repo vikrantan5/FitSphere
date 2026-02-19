@@ -113,6 +113,7 @@ class VideoCreate(BaseModel):
     duration: int  # in seconds
     description: str
     thumbnail_url: Optional[str] = None
+    is_free: bool = True
 
 class Video(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -125,6 +126,7 @@ class Video(BaseModel):
     video_url: str
     thumbnail_url: Optional[str] = None
     is_public: bool = True
+    is_free: bool = True  # Free or Premium video
     view_count: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
@@ -137,6 +139,7 @@ class VideoUpdate(BaseModel):
     description: Optional[str] = None
     thumbnail_url: Optional[str] = None
     is_public: Optional[bool] = None
+    is_free: Optional[bool] = None
 
 class ImageCreate(BaseModel):
     title: str

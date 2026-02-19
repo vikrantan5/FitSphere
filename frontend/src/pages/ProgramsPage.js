@@ -69,7 +69,7 @@ export default function ProgramsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">F</span>
               </div>
               <div>
@@ -124,7 +124,7 @@ export default function ProgramsPage() {
                   }}>
                     <DialogTrigger asChild>
                       <Button 
-                        className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
+                        className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
                         data-testid={`book-program-${idx}`}
                       >
                         Book Now
@@ -170,7 +170,7 @@ export default function ProgramsPage() {
                         </div>
                         <Button 
                           type="submit" 
-                          className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
+                          className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
                           data-testid="confirm-booking-btn"
                         >
                           Confirm Booking

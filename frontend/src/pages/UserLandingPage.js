@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, Heart, Star, Sparkles, Phone, Mail, Instagram, Facebook, Twitter, ShoppingCart, Calendar, Award, TrendingUp } from 'lucide-react';
+import { Play, Heart, Star, Sparkles, Phone, Mail, Instagram, Facebook, Twitter, ShoppingCart, Calendar, Award, TrendingUp, Lock, Shield } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -17,15 +17,31 @@ export default function UserLandingPage() {
   const [testimonials, setTestimonials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [viewMode, setViewMode] = useState('guest'); // 'guest' or 'all'
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
+    // Check if user is logged in
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+    if (token && userRole === 'user') {
+      setIsAuthenticated(true);
+      setViewMode('all');
+    }
     fetchData();
-  }, []);
+  }, [viewMode]);
 
   const fetchData = async () => {
     try {
+      // Fetch videos based on authentication and view mode
+      let videosEndpoint = `${API}/videos/public`; // Default to free videos
+      if (isAuthenticated && viewMode === 'all') {
+        videosEndpoint = `${API}/videos`;
+      }
+      
       const [videosRes, programsRes, productsRes, testimonialsRes] = await Promise.all([
-        axios.get(`${API}/videos`, { params: { limit: 4 } }),
+        axios.get(videosEndpoint, { params: { limit: 8 } }),
         axios.get(`${API}/programs`, { params: { limit: 4, is_active: true } }),
         axios.get(`${API}/products`, { params: { limit: 4 } }),
         axios.get(`${API}/testimonials`, { params: { limit: 6, approved_only: true } })
@@ -54,6 +70,24 @@ export default function UserLandingPage() {
     } else {
       navigate('/login');
     }
+  };
+
+  const handleVideoClick = (video) => {
+    if (!video.is_free && !isAuthenticated) {
+      setShowAuthModal(true);
+      return;
+    }
+    // Play video or navigate to video page
+    toast.success('Playing video: ' + video.title);
+  };
+
+  const handleToggleView = () => {
+    if (!isAuthenticated) {
+      toast.info('Please log in to see all videos');
+      navigate('/login');
+      return;
+    }
+    setViewMode(viewMode === 'guest' ? 'all' : 'guest');
   };
 
   const nextTestimonial = () => {
@@ -169,21 +203,66 @@ export default function UserLandingPage() {
       {videos.length > 0 && (
         <section id="videos" className="py-20 bg-white">
           <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
+            <div className="text-center mb-8">
               <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
                 Featured Workouts
               </h2>
-              <p className="text-xl text-gray-600">Discover our most popular training programs</p>
+              <p className="text-xl text-gray-600 mb-6">Discover our most popular training programs</p>
+              
+              {/* Guest/All Toggle */}
+              <div className="flex justify-center items-center gap-4 mb-8">
+                <Button
+                  onClick={handleToggleView}
+                  variant={viewMode === 'guest' ? 'default' : 'outline'}
+                  className={`rounded-full px-6 py-3 ${
+                    viewMode === 'guest' 
+                      ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white' 
+                      : 'border-2 border-violet-600 text-violet-600'
+                  }`}
+                  data-testid="browse-guest-toggle"
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Browse as Guest (Free Videos)
+                </Button>
+                <Button
+                  onClick={handleToggleView}
+                  variant={viewMode === 'all' ? 'default' : 'outline'}
+                  className={`rounded-full px-6 py-3 ${
+                    viewMode === 'all' 
+                      ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white' 
+                      : 'border-2 border-violet-600 text-violet-600'
+                  }`}
+                  data-testid="login-see-all-toggle"
+                  disabled={!isAuthenticated}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  {isAuthenticated ? 'See All Videos' : 'Login to See All'}
+                </Button>
+              </div>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {videos.map((video) => (
                 <Card 
                   key={video.id} 
-                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer bg-white rounded-2xl group"
-                  onClick={() => navigate('/user/videos')}
+                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer bg-white rounded-2xl group relative"
+                  onClick={() => handleVideoClick(video)}
                   data-testid={`video-card-${video.id}`}
                 >
+                  {/* Premium/Free Badge */}
+                  <div className="absolute top-4 left-4 z-10">
+                    {video.is_free ? (
+                      <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg">
+                        FREE
+                      </div>
+                    ) : (
+                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1">
+                        <Star className="h-3 w-3" />
+                        PREMIUM
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="relative h-64 bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
                     {video.thumbnail_url ? (
                       <img 
@@ -194,6 +273,17 @@ export default function UserLandingPage() {
                     ) : (
                       <Play className="h-20 w-20 text-white group-hover:scale-110 transition-transform" />
                     )}
+                    
+                    {/* Lock Overlay for Premium Videos */}
+                    {!video.is_free && !isAuthenticated && (
+                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
+                        <div className="text-center">
+                          <Lock className="h-12 w-12 text-white mx-auto mb-2" />
+                          <p className="text-white font-semibold">Login to Watch</p>
+                        </div>
+                      </div>
+                    )}
+                    
                     <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-all"></div>
                     <div className="absolute bottom-4 left-4 right-4">
                       <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center justify-center">
@@ -477,6 +567,55 @@ export default function UserLandingPage() {
           </div>
         </div>
       </section>
+
+      {/* Authentication Modal */}
+      {showAuthModal && (
+        <div 
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          onClick={() => setShowAuthModal(false)}
+        >
+          <Card 
+            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+            data-testid="auth-modal"
+          >
+            <div className="text-center">
+              <div className="w-20 h-20 bg-gradient-to-br from-violet-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                <Lock className="h-10 w-10 text-white" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-4">Premium Content</h3>
+              <p className="text-gray-600 mb-8">
+                This video requires a membership. Sign up or log in to access our full library of premium workouts.
+              </p>
+              <div className="flex flex-col gap-4">
+                <Button 
+                  onClick={() => navigate('/login')}
+                  className="bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:opacity-90 rounded-full py-6 text-lg font-semibold"
+                  data-testid="modal-login-btn"
+                >
+                  Log In
+                </Button>
+                <Button 
+                  onClick={() => navigate('/login')}
+                  variant="outline"
+                  className="border-2 border-violet-600 text-violet-600 hover:bg-violet-50 rounded-full py-6 text-lg font-semibold"
+                  data-testid="modal-signup-btn"
+                >
+                  Sign Up
+                </Button>
+                <Button 
+                  onClick={() => setShowAuthModal(false)}
+                  variant="ghost"
+                  className="text-gray-500 hover:text-gray-700"
+                  data-testid="modal-close-btn"
+                >
+                  Browse Free Videos Instead
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-16">

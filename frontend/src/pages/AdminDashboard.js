@@ -133,7 +133,7 @@ export default function AdminDashboard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">F</span>
               </div>
               <div>
@@ -191,12 +191,12 @@ export default function AdminDashboard() {
 
               <Card className="bg-white border border-stone-100 p-6 hover:shadow-lg transition-all" data-testid="metric-today">
                 <div className="flex items-center justify-between mb-4">
-                  <div className="w-12 h-12 bg-[#d4af37]/10 rounded-full flex items-center justify-center">
-                    <Calendar className="w-6 h-6 text-[#d4af37]" />
+                  <div className="w-12 h-12 bg-[#8b5cf6]/10 rounded-full flex items-center justify-center">
+                    <Calendar className="w-6 h-6 text-[#8b5cf6]" />
                   </div>
                 </div>
                 <p className="text-sm uppercase tracking-wider text-[#5a5a5a] mb-1">Today's Sessions</p>
-                <p className="text-3xl font-bold text-[#d4af37]" data-testid="today-sessions-count">{metrics.todays_sessions}</p>
+                <p className="text-3xl font-bold text-[#8b5cf6]" data-testid="today-sessions-count">{metrics.todays_sessions}</p>
               </Card>
             </div>
           )}
@@ -302,7 +302,7 @@ export default function AdminDashboard() {
                                   </div>
                                   <Button 
                                     type="submit" 
-                                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
+                                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
                                     data-testid="confirm-update-btn"
                                   >
                                     Update Booking

@@ -62,7 +62,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-20">
             <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
                 <span className="text-white font-bold text-xl">F</span>
               </div>
               <div>
@@ -159,7 +159,7 @@ export default function LandingPage() {
             ))}
           </div>
           <div className="text-center mt-12">
-            <Button className="bg-[#d4af37] hover:bg-[#d4af37]/90 text-white rounded-full px-10 py-6 text-base uppercase tracking-widest" data-testid="view-all-workouts-btn">
+            <Button className="bg-[#8b5cf6] hover:bg-[#8b5cf6]/90 text-white rounded-full px-10 py-6 text-base uppercase tracking-widest" data-testid="view-all-workouts-btn">
               View All Training Videos
             </Button>
           </div>
@@ -190,7 +190,7 @@ export default function LandingPage() {
                   </div>
                   <Button 
                     onClick={() => navigate('/login')} 
-                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
+                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
                     data-testid={`book-program-btn-${idx}`}
                   >
                     Book Now
@@ -222,7 +222,7 @@ export default function LandingPage() {
                   <div className="flex-1 text-center md:text-left">
                     <div className="flex justify-center md:justify-start mb-3">
                       {[...Array(testimonials[currentTestimonial].rating)].map((_, i) => (
-                        <Star key={i} className="w-5 h-5 fill-[#d4af37] text-[#d4af37]" />
+                        <Star key={i} className="w-5 h-5 fill-[#8b5cf6] text-[#8b5cf6]" />
                       ))}
                     </div>
                     <p className="text-lg text-[#1a1a1a] mb-4 italic">"{testimonials[currentTestimonial].comment}"</p>
@@ -280,7 +280,7 @@ export default function LandingPage() {
           </p>
           <Button 
             onClick={() => navigate('/login')} 
-            className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full px-12 py-8 text-lg uppercase tracking-widest transition-all hover:scale-105"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full px-12 py-8 text-lg uppercase tracking-widest transition-all hover:scale-105"
             data-testid="cta-reserve-btn"
           >
             Reserve Your Slot

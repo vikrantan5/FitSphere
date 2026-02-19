@@ -41,7 +41,7 @@ export default function Sidebar() {
     <div className="w-64 bg-gradient-to-b from-[#0f5132] to-[#0a3d25] text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl">
       <div className="p-6 border-b border-emerald-700/50">
         <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
             <Dumbbell className="w-6 h-6 text-white" />
           </div>
           <div>
@@ -81,7 +81,7 @@ export default function Sidebar() {
         <button
           onClick={handleLogout}
           data-testid="logout-button"
-          className="flex items-center gap-3 px-4 py-3 rounded-full w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 transition-all text-white font-semibold shadow-lg"
+          className="flex items-center gap-3 px-4 py-3 rounded-full w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 transition-all text-white font-semibold shadow-lg"
         >
           <LogOut size={20} />
           <span className="text-sm uppercase tracking-wider">Logout</span>

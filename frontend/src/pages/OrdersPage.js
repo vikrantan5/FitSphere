@@ -85,7 +85,7 @@ export default function OrdersPage() {
           <button
             onClick={exportToCSV}
             data-testid="export-csv-button"
-            className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:opacity-90 transition-all uppercase tracking-wider text-sm font-semibold shadow-lg"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:opacity-90 transition-all uppercase tracking-wider text-sm font-semibold shadow-lg"
           >
             <Download size={20} />
             Export CSV

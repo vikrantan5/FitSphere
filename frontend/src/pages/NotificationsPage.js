@@ -49,7 +49,7 @@ export default function NotificationsPage() {
     const icons = {
       new_order: <Package className="text-[#ff7f50]" size={20} />,
       failed_payment: <AlertCircle className="text-red-500" size={20} />,
-      low_stock: <AlertCircle className="text-[#d4af37]" size={20} />,
+      low_stock: <AlertCircle className="text-[#8b5cf6]" size={20} />,
       new_user: <UserPlus className="text-[#0f5132]" size={20} />,
       system_error: <Info className="text-[#5a5a5a]" size={20} />,
     };
@@ -73,7 +73,7 @@ export default function NotificationsPage() {
               onClick={() => setFilter('all')}
               className={`px-6 py-3 rounded-full transition-all uppercase tracking-wider text-sm font-semibold ${
                 filter === 'all'
-                  ? 'bg-gradient-to-r from-[#ff7f50] to-[#d4af37] text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white shadow-lg'
                   : 'bg-white text-[#5a5a5a] border border-stone-200 hover:bg-[#fdfbf7]'
               }`}
             >
@@ -83,7 +83,7 @@ export default function NotificationsPage() {
               onClick={() => setFilter('unread')}
               className={`px-6 py-3 rounded-full transition-all uppercase tracking-wider text-sm font-semibold ${
                 filter === 'unread'
-                  ? 'bg-gradient-to-r from-[#ff7f50] to-[#d4af37] text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white shadow-lg'
                   : 'bg-white text-[#5a5a5a] border border-stone-200 hover:bg-[#fdfbf7]'
               }`}
             >

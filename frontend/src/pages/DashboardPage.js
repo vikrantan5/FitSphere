@@ -72,8 +72,8 @@ export default function DashboardPage() {
       title: 'Total Orders',
       value: analytics?.total_orders || 0,
       icon: ShoppingCart,
-      color: 'bg-[#d4af37]',
-      bgLight: 'bg-[#d4af37]/10',
+      color: 'bg-[#8b5cf6]',
+      bgLight: 'bg-[#8b5cf6]/10',
     },
     {
       title: 'Orders Today',
@@ -171,7 +171,7 @@ export default function DashboardPage() {
 
         {/* Payment Success Rate */}
         {analytics?.payment_success_rate !== undefined && (
-          <div className="bg-gradient-to-r from-[#ff7f50] to-[#d4af37] rounded-none shadow-md p-6 text-white">
+          <div className="bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] rounded-none shadow-md p-6 text-white">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm uppercase tracking-wider opacity-90">Payment Success Rate</p>

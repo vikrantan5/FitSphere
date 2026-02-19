@@ -141,6 +141,7 @@ async def upload_video(
     difficulty: str = Form(...),
     duration: int = Form(...),
     description: str = Form(...),
+    is_free: bool = Form(True),
     admin: dict = Depends(get_current_admin)
 ):
     """Upload video to Bunny CDN"""
@@ -164,7 +165,8 @@ async def upload_video(
             difficulty=VideoDifficulty(difficulty),
             duration=duration,
             description=description,
-            video_url=upload_result['cdn_url']
+            video_url=upload_result['cdn_url'],
+            is_free=is_free
         )
         
         video_dict = video.model_dump()
@@ -203,6 +205,32 @@ async def get_videos(
 ):
     """Get all videos with optional filters"""
     query = {}
+    if category:
+        query['category'] = category
+    if difficulty:
+        query['difficulty'] = difficulty
+    if search:
+        query['title'] = {"$regex": search, "$options": "i"}
+    
+    videos = await db.videos.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+    
+    for video in videos:
+        for field in ['created_at', 'updated_at']:
+            if isinstance(video.get(field), str):
+                video[field] = datetime.fromisoformat(video[field])
+    
+    return videos
+
+@api_router.get("/videos/public", response_model=List[Video])
+async def get_public_videos(
+    category: Optional[str] = None,
+    difficulty: Optional[str] = None,
+    search: Optional[str] = None,
+    skip: int = 0,
+    limit: int = 50
+):
+    """Get only free/public videos (no authentication required)"""
+    query = {"is_free": True}
     if category:
         query['category'] = category
     if difficulty:

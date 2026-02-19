@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card } from '@/components/ui/card';
 import { toast } from 'sonner';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, ArrowLeft } from 'lucide-react';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -86,9 +86,19 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f5132] to-[#0f5132]/90 flex items-center justify-center p-4" data-testid="login-page">
+      {/* Back Button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="fixed top-6 left-6 z-50 flex items-center gap-2 text-white/80 hover:text-white transition-colors group"
+        data-testid="back-button"
+      >
+        <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+        <span className="text-sm uppercase tracking-wider">Back</span>
+      </button>
+
       <Card className="w-full max-w-md bg-white rounded-none border-0 shadow-2xl" data-testid="login-card">
         <div className="bg-gradient-to-r from-[#0f5132] to-[#0f5132]/95 p-12 text-center">
-          <div className="w-20 h-20 bg-gradient-to-br from-[#ff7f50] to-[#d4af37] rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-20 h-20 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-white font-bold text-3xl">F</span>
           </div>
           <h1 className="text-3xl text-white mb-2" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="login-title">FitSphere</h1>
@@ -99,7 +109,7 @@ export default function LoginPage() {
           <TabsList className="grid w-full grid-cols-2 mb-8 bg-stone-100 rounded-full p-1">
             <TabsTrigger 
               value="member" 
-              className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff7f50] data-[state=active]:to-[#d4af37] data-[state=active]:text-white"
+              className="rounded-full data-[state=active]:bg-gradient-to-r data-[state=active]:from-[#ff7f50] data-[state=active]:to-[#8b5cf6] data-[state=active]:text-white"
               data-testid="member-tab"
             >
               Member
@@ -166,7 +176,7 @@ export default function LoginPage() {
                   <Button 
                     type="submit" 
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 text-sm uppercase tracking-widest disabled:opacity-50"
+                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 text-sm uppercase tracking-widest disabled:opacity-50"
                     data-testid="member-login-btn"
                   >
                     {loading ? 'Signing In...' : 'Sign In as Member'}
@@ -234,7 +244,7 @@ export default function LoginPage() {
                   <Button 
                     type="submit" 
                     disabled={loading}
-                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#d4af37] hover:opacity-90 text-white rounded-full py-6 text-sm uppercase tracking-widest disabled:opacity-50"
+                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 text-sm uppercase tracking-widest disabled:opacity-50"
                     data-testid="register-submit-btn"
                   >
                     {loading ? 'Creating Account...' : 'Create Account'}
