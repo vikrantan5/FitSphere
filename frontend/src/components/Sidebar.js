@@ -10,6 +10,8 @@ import {
   Users,
   Bell,
   LogOut,
+  Calendar,
+  Dumbbell,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -24,18 +26,20 @@ export default function Sidebar() {
 
   const menuItems = [
     { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { path: '/videos', icon: Video, label: 'Videos' },
-    { path: '/images', icon: Image, label: 'Images' },
-    { path: '/products', icon: ShoppingBag, label: 'Products' },
-    { path: '/orders', icon: ShoppingCart, label: 'Orders' },
-    { path: '/users', icon: Users, label: 'Users' },
-    { path: '/notifications', icon: Bell, label: 'Notifications' },
+    { path: '/admin/videos', icon: Video, label: 'Videos' },
+    { path: '/admin/images', icon: Image, label: 'Images' },
+    { path: '/admin/products', icon: ShoppingBag, label: 'Products' },
+    { path: '/admin/bookings', icon: Calendar, label: 'Bookings' },
+    { path: '/admin/programs', icon: Dumbbell, label: 'Programs' },
+    { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
+    { path: '/admin/users', icon: Users, label: 'Users' },
+    { path: '/admin/notifications', icon: Bell, label: 'Notifications' },
   ];
 
   return (
     <div className="w-64 bg-gradient-to-b from-[#0f5132] to-[#0a3d25] text-white h-screen fixed left-0 top-0 flex flex-col">
       <div className="p-6">
-        <h1 className="text-2xl font-bold" style={{fontFamily: 'Playfair Display, serif'}}>Henna Heaven</h1>
+        <h1 className="text-2xl font-bold">FitSphere</h1>
         <p className="text-sm text-emerald-200">Admin Panel</p>
       </div>
 
