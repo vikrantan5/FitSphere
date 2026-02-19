@@ -693,7 +693,7 @@ async def export_orders_csv(admin: dict = Depends(get_current_admin)):
 
 # ==================== USER MANAGEMENT ENDPOINTS ====================
 
-@api_router.get("/users", response_model=List[User])
+@api_router.get("/users")
 async def get_users(
     skip: int = 0,
     limit: int = 50,
