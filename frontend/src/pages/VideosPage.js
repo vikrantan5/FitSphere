@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { videoAPI } from '../lib/api';
-import Layout from '../components/Layout';
-import { Upload, Trash2, Edit, Eye, EyeOff } from 'lucide-react';
+import Layout from './Layout';
+import { Upload, Trash2, Lock, Unlock, Star, DollarSign } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function VideosPage() {
@@ -15,6 +15,7 @@ export default function VideosPage() {
     difficulty: 'beginner',
     duration: 0,
     description: '',
+    is_free: true
   });
   const [uploading, setUploading] = useState(false);
 
@@ -48,6 +49,7 @@ export default function VideosPage() {
     formData.append('difficulty', uploadData.difficulty);
     formData.append('duration', uploadData.duration);
     formData.append('description', uploadData.description);
+    formData.append('is_free', uploadData.is_free);
 
     try {
       await videoAPI.upload(formData);
@@ -60,6 +62,7 @@ export default function VideosPage() {
         difficulty: 'beginner',
         duration: 0,
         description: '',
+        is_free: true
       });
       loadVideos();
     } catch (error) {
@@ -81,13 +84,13 @@ export default function VideosPage() {
     }
   };
 
-  const toggleVisibility = async (video) => {
+  const toggleFreeStatus = async (video) => {
     try {
-      await videoAPI.update(video.id, { is_public: !video.is_public });
-      toast.success('Visibility updated');
+      await videoAPI.update(video.id, { is_free: !video.is_free });
+      toast.success(`Video marked as ${!video.is_free ? 'FREE' : 'PREMIUM'}`);
       loadVideos();
     } catch (error) {
-      toast.error('Failed to update visibility');
+      toast.error('Failed to update video status');
     }
   };
 
@@ -96,13 +99,13 @@ export default function VideosPage() {
       <div className="space-y-6" data-testid="videos-page">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold text-gray-800">Videos</h1>
-            <p className="text-gray-600 mt-1">Manage workout videos</p>
+            <h1 className="text-4xl font-normal text-[#0f5132]" style={{fontFamily: 'Tenor Sans, serif'}}>Videos</h1>
+            <p className="text-[#5a5a5a] mt-1">Manage workout videos and access control</p>
           </div>
           <button
             onClick={() => setShowUploadModal(true)}
             data-testid="upload-video-button"
-            className="bg-purple-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-purple-700 transition-all"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:opacity-90 transition-all uppercase tracking-wider text-sm font-semibold shadow-lg"
           >
             <Upload size={20} />
             Upload Video
@@ -110,16 +113,16 @@ export default function VideosPage() {
         </div>
 
         {loading ? (
-          <div className="text-center py-12">Loading videos...</div>
+          <div className="text-center py-12 text-[#5a5a5a]">Loading videos...</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {videos.map((video) => (
               <div
                 key={video.id}
                 data-testid={`video-card-${video.id}`}
-                className="bg-white rounded-xl shadow-md overflow-hidden"
+                className="bg-white rounded-none shadow-md overflow-hidden hover:shadow-xl transition-all border border-stone-100"
               >
-                <div className="aspect-video bg-gray-200 relative">
+                <div className="aspect-video bg-gradient-to-br from-[#0f5132] to-[#0a3d25] relative">
                   {video.thumbnail_url ? (
                     <img
                       src={video.thumbnail_url}
@@ -128,49 +131,80 @@ export default function VideosPage() {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <span className="text-gray-400">No thumbnail</span>
+                      <span className="text-white/50">No thumbnail</span>
                     </div>
                   )}
-                  <div className="absolute top-2 right-2">
-                    {video.is_public ? (
-                      <span className="bg-green-500 text-white px-2 py-1 rounded text-xs">
-                        Public
+                  <div className="absolute top-3 left-3">
+                    {video.is_free ? (
+                      <span className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-lg">
+                        <Unlock className="w-3 h-3" />
+                        FREE
                       </span>
                     ) : (
-                      <span className="bg-gray-500 text-white px-2 py-1 rounded text-xs">
-                        Private
+                      <span className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1 shadow-lg">
+                        <Star className="w-3 h-3" />
+                        PREMIUM
+                      </span>
+                    )}
+                  </div>
+                  <div className="absolute top-3 right-3">
+                    {video.is_public ? (
+                      <span className="bg-white/90 text-[#0f5132] px-2 py-1 rounded-full text-xs font-semibold">
+                        Visible
+                      </span>
+                    ) : (
+                      <span className="bg-gray-500/90 text-white px-2 py-1 rounded-full text-xs font-semibold">
+                        Hidden
                       </span>
                     )}
                   </div>
                 </div>
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg text-gray-800 mb-2">
+                <div className="p-5">
+                  <h3 className="font-bold text-lg text-gray-800 mb-2">
                     {video.title}
                   </h3>
                   <div className="flex gap-2 mb-3">
-                    <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-[#0f5132] text-white px-2 py-1 rounded-full uppercase tracking-wider font-semibold">
                       {video.category}
                     </span>
-                    <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                    <span className="text-xs bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white px-2 py-1 rounded-full uppercase tracking-wider font-semibold">
                       {video.difficulty}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">
                     {video.description}
                   </p>
+                  <div className="text-xs text-[#5a5a5a] mb-4">
+                    ⏱ {Math.floor(video.duration / 60)} min • {video.view_count || 0} views
+                  </div>
+                  
                   <div className="flex gap-2">
                     <button
-                      onClick={() => toggleVisibility(video)}
-                      className="flex-1 bg-gray-100 text-gray-700 px-3 py-2 rounded hover:bg-gray-200 transition-all flex items-center justify-center gap-1"
-                      data-testid={`toggle-visibility-${video.id}`}
+                      onClick={() => toggleFreeStatus(video)}
+                      className={`flex-1 px-3 py-2 rounded-full transition-all flex items-center justify-center gap-2 text-sm font-semibold uppercase tracking-wider ${
+                        video.is_free 
+                          ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'
+                      }`}
+                      data-testid={`toggle-free-status-${video.id}`}
                     >
-                      {video.is_public ? <EyeOff size={16} /> : <Eye size={16} />}
-                      {video.is_public ? 'Hide' : 'Show'}
+                      {video.is_free ? (
+                        <>
+                          <Lock size={14} />
+                          Make Premium
+                        </>
+                      ) : (
+                        <>
+                          <Unlock size={14} />
+                          Make Free
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={() => handleDelete(video.id)}
                       data-testid={`delete-video-${video.id}`}
-                      className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600 transition-all"
+                      className="bg-red-500 text-white px-4 py-2 rounded-full hover:bg-red-600 transition-all"
+                      title="Delete video"
                     >
                       <Trash2 size={16} />
                     </button>
@@ -182,8 +216,9 @@ export default function VideosPage() {
         )}
 
         {!loading && videos.length === 0 && (
-          <div className="text-center py-12 bg-white rounded-xl">
-            <p className="text-gray-500">No videos uploaded yet</p>
+          <div className="text-center py-12 bg-white rounded-none border border-stone-100">
+            <Upload className="w-12 h-12 mx-auto mb-4 text-[#5a5a5a] opacity-50" />
+            <p className="text-[#5a5a5a]">No videos uploaded yet</p>
           </div>
         )}
       </div>
@@ -191,11 +226,11 @@ export default function VideosPage() {
       {/* Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6">
-            <h2 className="text-2xl font-bold mb-4">Upload Video</h2>
-            <form onSubmit={handleUpload} className="space-y-4">
+          <div className="bg-white rounded-none max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-stone-200">
+            <h2 className="text-2xl font-normal text-[#0f5132] mb-6" style={{fontFamily: 'Tenor Sans, serif'}}>Upload Video</h2>
+            <form onSubmit={handleUpload} className="space-y-5">
               <div>
-                <label className="block text-sm font-medium mb-2">Video File</label>
+                <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Video File *</label>
                 <input
                   type="file"
                   accept="video/*"
@@ -203,12 +238,12 @@ export default function VideosPage() {
                     setUploadData({ ...uploadData, file: e.target.files[0] })
                   }
                   data-testid="video-file-input"
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Title</label>
+                <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Title *</label>
                 <input
                   type="text"
                   value={uploadData.title}
@@ -216,19 +251,19 @@ export default function VideosPage() {
                     setUploadData({ ...uploadData, title: e.target.value })
                   }
                   data-testid="video-title-input"
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   required
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Category</label>
+                  <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Category *</label>
                   <select
                     value={uploadData.category}
                     onChange={(e) =>
                       setUploadData({ ...uploadData, category: e.target.value })
                     }
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   >
                     <option value="yoga">Yoga</option>
                     <option value="cardio">Cardio</option>
@@ -239,13 +274,13 @@ export default function VideosPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Difficulty</label>
+                  <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Difficulty *</label>
                   <select
                     value={uploadData.difficulty}
                     onChange={(e) =>
                       setUploadData({ ...uploadData, difficulty: e.target.value })
                     }
-                    className="w-full border border-gray-300 rounded-lg p-2"
+                    className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   >
                     <option value="beginner">Beginner</option>
                     <option value="intermediate">Intermediate</option>
@@ -254,8 +289,8 @@ export default function VideosPage() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">
-                  Duration (seconds)
+                <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">
+                  Duration (seconds) *
                 </label>
                 <input
                   type="number"
@@ -263,35 +298,61 @@ export default function VideosPage() {
                   onChange={(e) =>
                     setUploadData({ ...uploadData, duration: parseInt(e.target.value) })
                   }
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   required
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Description</label>
+                <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Description *</label>
                 <textarea
                   value={uploadData.description}
                   onChange={(e) =>
                     setUploadData({ ...uploadData, description: e.target.value })
                   }
                   rows={3}
-                  className="w-full border border-gray-300 rounded-lg p-2"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   required
                 />
               </div>
+              
+              {/* Free/Premium Toggle */}
+              <div className="bg-[#fef3e8] p-4 border border-stone-200 rounded-none">
+                <label className="flex items-center cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={uploadData.is_free}
+                    onChange={(e) =>
+                      setUploadData({ ...uploadData, is_free: e.target.checked })
+                    }
+                    data-testid="video-is-free-checkbox"
+                    className="w-5 h-5 text-[#0f5132] border-stone-300 rounded focus:ring-[#0f5132] focus:ring-2 mr-3"
+                  />
+                  <div>
+                    <span className="text-sm font-semibold text-[#1a1a1a] uppercase tracking-wider">
+                      {uploadData.is_free ? '🔓 FREE Video' : '🔒 PREMIUM Video'}
+                    </span>
+                    <p className="text-xs text-[#5a5a5a] mt-1">
+                      {uploadData.is_free 
+                        ? 'This video will be visible to all visitors on the homepage' 
+                        : 'Only logged-in users can access this video'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+
               <div className="flex gap-3 pt-4">
                 <button
                   type="submit"
                   disabled={uploading}
                   data-testid="submit-upload"
-                  className="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white py-3 rounded-full hover:opacity-90 disabled:opacity-50 uppercase tracking-wider font-semibold transition-all"
                 >
-                  {uploading ? 'Uploading...' : 'Upload'}
+                  {uploading ? 'Uploading...' : 'Upload Video'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowUploadModal(false)}
-                  className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg hover:bg-gray-300"
+                  className="flex-1 bg-stone-200 text-[#5a5a5a] py-3 rounded-full hover:bg-stone-300 uppercase tracking-wider font-semibold transition-all"
                 >
                   Cancel
                 </button>

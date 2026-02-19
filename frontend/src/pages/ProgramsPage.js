@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { Button } from '@/components/ui/button';
+import Layout from './Layout';
+import { Plus, Edit, Trash2, X, Dumbbell, DollarSign, Calendar, Award } from 'lucide-react';
+import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { toast } from 'sonner';
-import { Calendar, Clock, DollarSign } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -16,174 +17,459 @@ const API = `${BACKEND_URL}/api`;
 export default function ProgramsPage() {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState([]);
-  const [selectedProgram, setSelectedProgram] = useState(null);
-  const [bookingData, setBookingData] = useState({ schedule: '', notes: '' });
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [trainers, setTrainers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingProgram, setEditingProgram] = useState(null);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    duration_weeks: '',
+    price: '',
+    difficulty: 'beginner',
+    trainer_id: '',
+    image_url: '',
+    sessions_per_week: 3,
+    video_ids: []
+  });
 
   useEffect(() => {
-    fetchPrograms();
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('userRole');
+    if (!token || userRole !== 'admin') {
+      toast.error('Admin access required');
+      navigate('/login');
+      return;
+    }
+    loadPrograms();
+    loadTrainers();
   }, []);
 
-  const fetchPrograms = async () => {
+  const loadPrograms = async () => {
+    const token = localStorage.getItem('token');
     try {
-      const response = await axios.get(`${API}/programs`);
+      const response = await axios.get(`${API}/programs`, {
+        params: { limit: 100 }
+      });
       setPrograms(response.data);
     } catch (error) {
-      console.error('Error fetching programs:', error);
+      console.error('Load programs error:', error);
       toast.error('Failed to load programs');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleBooking = async (e) => {
+  const loadTrainers = async () => {
+    try {
+      const response = await axios.get(`${API}/trainers`, {
+        params: { limit: 100 }
+      });
+      setTrainers(response.data);
+    } catch (error) {
+      console.error('Load trainers error:', error);
+    }
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
-    if (!token) {
-      toast.error('Please login to book a session');
-      navigate('/login');
+    
+    // Validate image URL if provided (allow both http and https, or empty)
+    if (formData.image_url && formData.image_url.trim() !== '' && !isValidImageUrl(formData.image_url)) {
+      toast.error('Please enter a valid image URL (must start with http:// or https://)');
       return;
     }
 
     try {
-      await axios.post(
-        `${API}/bookings`,
-        {
-          program_id: selectedProgram.id,
-          program_name: selectedProgram.name,
-          ...bookingData
-        },
-        {
+      const payload = {
+        ...formData,
+        image_url: formData.image_url.trim() || undefined, // Send undefined if empty
+        duration_weeks: parseInt(formData.duration_weeks),
+        price: parseFloat(formData.price),
+        sessions_per_week: parseInt(formData.sessions_per_week)
+      };
+
+      if (editingProgram) {
+        await axios.put(`${API}/programs/${editingProgram.id}`, payload, {
           headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      toast.success('Booking request submitted successfully!');
-      setIsDialogOpen(false);
-      setBookingData({ schedule: '', notes: '' });
+        });
+        toast.success('Program updated successfully');
+      } else {
+        await axios.post(`${API}/programs`, payload, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        toast.success('Program created successfully');
+      }
+      
+      resetForm();
+      loadPrograms();
+      setShowModal(false);
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Booking failed');
+      console.error('Submit error:', error);
+      toast.error(error.response?.data?.detail || 'Operation failed');
     }
   };
 
+  const isValidImageUrl = (url) => {
+    // Allow both http:// and https://
+    return url.startsWith('http://') || url.startsWith('https://');
+  };
+
+  const handleEdit = (program) => {
+    setEditingProgram(program);
+    setFormData({
+      title: program.title,
+      description: program.description,
+      category: program.category,
+      duration_weeks: program.duration_weeks,
+      price: program.price,
+      difficulty: program.difficulty,
+      trainer_id: program.trainer_id,
+      image_url: program.image_url || '',
+      sessions_per_week: program.sessions_per_week || 3,
+      video_ids: program.video_ids || []
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (programId) => {
+    if (!window.confirm('Are you sure you want to delete this program?')) return;
+    
+    const token = localStorage.getItem('token');
+    try {
+      await axios.delete(`${API}/programs/${programId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      toast.success('Program deleted successfully');
+      loadPrograms();
+    } catch (error) {
+      console.error('Delete error:', error);
+      toast.error('Failed to delete program');
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      title: '',
+      description: '',
+      category: '',
+      duration_weeks: '',
+      price: '',
+      difficulty: 'beginner',
+      trainer_id: '',
+      image_url: '',
+      sessions_per_week: 3,
+      video_ids: []
+    });
+    setEditingProgram(null);
+  };
+
+  const handleOpenModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
   return (
-    <div className="min-h-screen bg-[#fdfbf7]" data-testid="programs-page">
-      <nav className="fixed top-0 w-full z-50 backdrop-blur-md bg-white/80 border-b border-stone-100/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-20">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
-                <span className="text-white font-bold text-xl">F</span>
-              </div>
-              <div>
-                <h1 className="text-2xl font-normal" style={{fontFamily: 'Tenor Sans, serif'}}>FitSphere</h1>
-              </div>
-            </div>
-            <div className="hidden md:flex space-x-8">
-              <Link to="/" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Home</Link>
-              <Link to="/programs" className="text-sm uppercase tracking-widest text-[#0f5132]">Programs</Link>
-              <Link to="/products" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Shop</Link>
-              <Link to="/dashboard" className="text-sm uppercase tracking-widest hover:text-[#0f5132] transition-colors">Dashboard</Link>
-            </div>
-            <Button onClick={() => navigate('/login')} className="bg-[#ff7f50] hover:bg-[#ff7f50]/90 text-white rounded-full px-6 py-3 text-sm uppercase tracking-widest">
-              Sign In
-            </Button>
+    <Layout>
+      <div className="space-y-6" data-testid="programs-page">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-4xl font-normal text-[#0f5132]" style={{fontFamily: 'Tenor Sans, serif'}}>Programs</h1>
+            <p className="text-[#5a5a5a] mt-1">Manage fitness programs and training plans</p>
           </div>
+          <Button
+            onClick={handleOpenModal}
+            data-testid="create-program-button"
+            className="bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white px-6 py-3 rounded-full flex items-center gap-2 hover:opacity-90 transition-all uppercase tracking-wider text-sm font-semibold shadow-lg"
+          >
+            <Plus size={20} />
+            Create Program
+          </Button>
         </div>
-      </nav>
 
-      <div className="pt-32 pb-16 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
-            <h1 className="text-4xl md:text-5xl lg:text-6xl text-[#0f5132] mb-4 uppercase tracking-widest" style={{fontFamily: 'Tenor Sans, serif'}} data-testid="programs-page-title">
-              Our Programs
-            </h1>
-            <p className="text-[#5a5a5a] text-base">Choose the perfect program for your fitness journey</p>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
+        {loading ? (
+          <div className="text-center py-12 text-[#5a5a5a]">Loading programs...</div>
+        ) : (
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {programs.map((program, idx) => (
-              <Card key={program.id} className="bg-white border border-stone-100 overflow-hidden group hover:shadow-xl transition-all duration-500" data-testid={`program-card-${idx}`}>
-                <div className="aspect-[4/5] overflow-hidden">
-                  <img src={program.image_url} alt={program.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+              <Card key={program.id} className="overflow-hidden hover:shadow-xl transition-all bg-white border border-stone-100" data-testid={`program-card-${idx}`}>
+                <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#0f5132] to-[#0a3d25]">
+                  {program.image_url ? (
+                    <img 
+                      src={program.image_url} 
+                      alt={program.title}
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'flex';
+                      }}
+                    />
+                  ) : null}
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#0f5132] to-[#0a3d25] flex items-center justify-center" style={{ display: program.image_url ? 'none' : 'flex' }}>
+                    <Dumbbell className="h-20 w-20 text-white opacity-50" />
+                  </div>
+                  <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-[#0f5132]">
+                    {program.category}
+                  </div>
+                  <div className="absolute top-4 right-4 bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] px-3 py-1 rounded-full text-xs font-bold text-white">
+                    {program.difficulty}
+                  </div>
                 </div>
                 <div className="p-6">
-                  <span className="inline-block px-4 py-1 bg-[#0f5132] text-white text-xs uppercase tracking-widest rounded-full mb-3">{program.category}</span>
-                  <h3 className="text-xl font-medium text-[#1a1a1a] mb-2" style={{fontFamily: 'Tenor Sans, serif'}}>{program.name}</h3>
-                  <p className="text-[#5a5a5a] text-sm mb-4">{program.description}</p>
-                  <div className="space-y-2 mb-6">
-                    <div className="flex items-center text-sm text-[#5a5a5a]">
-                      <Clock className="w-4 h-4 mr-2 text-[#0f5132]" />
-                      <span>{program.duration}</span>
+                  <h3 className="font-bold text-xl mb-2 text-gray-800" data-testid={`program-title-${idx}`}>{program.title}</h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">{program.description}</p>
+                  
+                  <div className="space-y-2 mb-4 text-sm text-[#5a5a5a]">
+                    <div className="flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-[#0f5132]" />
+                      <span>{program.duration_weeks} weeks • {program.sessions_per_week}x/week</span>
                     </div>
-                    <div className="flex items-center text-sm">
+                    <div className="flex items-center">
                       <DollarSign className="w-4 h-4 mr-2 text-[#0f5132]" />
-                      <span className="font-semibold text-[#0f5132]" data-testid={`program-price-${idx}`}>₹ {program.price}</span>
+                      <span className="font-bold text-[#ff7f50]" data-testid={`program-price-${idx}`}>₹{program.price}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Award className="w-4 h-4 mr-2 text-[#0f5132]" />
+                      <span>{program.enrolled_count || 0} enrolled</span>
                     </div>
                   </div>
-                  <Dialog open={isDialogOpen && selectedProgram?.id === program.id} onOpenChange={(open) => {
-                    setIsDialogOpen(open);
-                    if (open) setSelectedProgram(program);
-                  }}>
-                    <DialogTrigger asChild>
-                      <Button 
-                        className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
-                        data-testid={`book-program-${idx}`}
-                      >
-                        Book Now
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md bg-white rounded-none" data-testid="booking-dialog">
-                      <DialogHeader>
-                        <DialogTitle className="text-2xl" style={{fontFamily: 'Tenor Sans, serif'}}>Book {program.name}</DialogTitle>
-                      </DialogHeader>
-                      <form onSubmit={handleBooking} className="space-y-6 mt-4">
-                        <div>
-                          <Label htmlFor="schedule" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Preferred Schedule</Label>
-                          <Input
-                            id="schedule"
-                            type="datetime-local"
-                            value={bookingData.schedule}
-                            onChange={(e) => setBookingData({ ...bookingData, schedule: e.target.value })}
-                            className="bg-transparent border-0 border-b border-stone-300 rounded-none px-0 py-4 focus:border-[#0f5132] focus:ring-0 mt-2"
-                            required
-                            data-testid="booking-schedule-input"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="notes" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Additional Notes (Optional)</Label>
-                          <Textarea
-                            id="notes"
-                            placeholder="Any special requirements or questions..."
-                            value={bookingData.notes}
-                            onChange={(e) => setBookingData({ ...bookingData, notes: e.target.value })}
-                            className="bg-transparent border border-stone-300 rounded-none px-4 py-4 focus:border-[#0f5132] focus:ring-0 mt-2 min-h-[100px]"
-                            data-testid="booking-notes-input"
-                          />
-                        </div>
-                        <div className="bg-[#fef3e8] p-4 rounded-none">
-                          <div className="flex justify-between text-sm mb-2">
-                            <span className="text-[#5a5a5a]">Program Price:</span>
-                            <span className="font-semibold text-[#0f5132]">₹ {program.price}</span>
-                          </div>
-                          <div className="border-t border-stone-300 pt-2 flex justify-between">
-                            <span className="font-medium text-[#1a1a1a]">Total:</span>
-                            <span className="font-bold text-[#0f5132] text-lg">₹ {program.price}</span>
-                          </div>
-                        </div>
-                        <Button 
-                          type="submit" 
-                          className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-widest"
-                          data-testid="confirm-booking-btn"
-                        >
-                          Confirm Booking
-                        </Button>
-                      </form>
-                    </DialogContent>
-                  </Dialog>
+
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleEdit(program)}
+                      data-testid={`edit-program-${idx}`}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-[#0f5132] text-[#0f5132] hover:bg-[#0f5132] hover:text-white rounded-full"
+                    >
+                      <Edit className="w-4 h-4 mr-2" />
+                      Edit
+                    </Button>
+                    <Button
+                      onClick={() => handleDelete(program.id)}
+                      data-testid={`delete-program-${idx}`}
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 border-red-500 text-red-500 hover:bg-red-500 hover:text-white rounded-full"
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Delete
+                    </Button>
+                  </div>
                 </div>
               </Card>
             ))}
           </div>
-        </div>
+        )}
+
+        {programs.length === 0 && !loading && (
+          <div className="text-center py-12 bg-white rounded-none border border-stone-100">
+            <Dumbbell className="w-12 h-12 mx-auto mb-4 text-[#5a5a5a] opacity-50" />
+            <p className="text-[#5a5a5a]">No programs found. Create your first program!</p>
+          </div>
+        )}
       </div>
-    </div>
+
+      {/* Create/Edit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-none max-w-2xl w-full max-h-[90vh] overflow-y-auto p-8 shadow-2xl border border-stone-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-normal text-[#0f5132]" style={{fontFamily: 'Tenor Sans, serif'}}>
+                {editingProgram ? 'Edit Program' : 'Create New Program'}
+              </h2>
+              <button onClick={() => setShowModal(false)} className="text-[#5a5a5a] hover:text-[#1a1a1a]">
+                <X size={24} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div>
+                <Label htmlFor="title" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Program Title *</Label>
+                <Input
+                  id="title"
+                  type="text"
+                  placeholder="e.g., Beginner Strength Training"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                  required
+                  data-testid="program-title-input"
+                />
+              </div>
+
+              <div>
+                <Label htmlFor="description" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Description *</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Describe the program..."
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2 min-h-[100px]"
+                  required
+                  data-testid="program-description-input"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="category" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Category *</Label>
+                  <Input
+                    id="category"
+                    type="text"
+                    placeholder="e.g., Strength Training"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                    required
+                    data-testid="program-category-input"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="difficulty" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Difficulty *</Label>
+                  <Select value={formData.difficulty} onValueChange={(value) => setFormData({ ...formData, difficulty: value })}>
+                    <SelectTrigger className="mt-2 rounded-none border-stone-300" data-testid="program-difficulty-select">
+                      <SelectValue placeholder="Select difficulty" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="beginner">Beginner</SelectItem>
+                      <SelectItem value="intermediate">Intermediate</SelectItem>
+                      <SelectItem value="advanced">Advanced</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="duration_weeks" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Duration (weeks) *</Label>
+                  <Input
+                    id="duration_weeks"
+                    type="number"
+                    min="1"
+                    placeholder="8"
+                    value={formData.duration_weeks}
+                    onChange={(e) => setFormData({ ...formData, duration_weeks: e.target.value })}
+                    className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                    required
+                    data-testid="program-duration-input"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="sessions_per_week" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Sessions/Week *</Label>
+                  <Input
+                    id="sessions_per_week"
+                    type="number"
+                    min="1"
+                    max="7"
+                    placeholder="3"
+                    value={formData.sessions_per_week}
+                    onChange={(e) => setFormData({ ...formData, sessions_per_week: e.target.value })}
+                    className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                    required
+                    data-testid="program-sessions-input"
+                  />
+                </div>
+
+                <div>
+                  <Label htmlFor="price" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Price (₹) *</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="2999"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                    required
+                    data-testid="program-price-input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="trainer_id" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Trainer *</Label>
+                <Select value={formData.trainer_id} onValueChange={(value) => setFormData({ ...formData, trainer_id: value })}>
+                  <SelectTrigger className="mt-2 rounded-none border-stone-300" data-testid="program-trainer-select">
+                    <SelectValue placeholder="Select a trainer" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {trainers.map((trainer) => (
+                      <SelectItem key={trainer.id} value={trainer.id}>
+                        {trainer.name} - {trainer.specialization}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {trainers.length === 0 && (
+                  <p className="text-xs text-yellow-600 mt-1">No trainers found. Please create a trainer first.</p>
+                )}
+              </div>
+
+              {/* Image URL Input */}
+              <div>
+                <Label htmlFor="image_url" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Image URL (Optional)</Label>
+                <Input
+                  id="image_url"
+                  type="text"
+                  placeholder="https://example.com/image.jpg or http://example.com/image.jpg"
+                  value={formData.image_url}
+                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
+                  data-testid="program-image-url-input"
+                />
+                <p className="text-xs text-[#5a5a5a] mt-2">
+                  💡 Tip: Right-click on any Google Image → "Copy image address" and paste here (supports both http:// and https://)
+                </p>
+                {formData.image_url && formData.image_url.trim() !== '' && (
+                  <div className="mt-3">
+                    <p className="text-xs text-[#5a5a5a] mb-2">Preview:</p>
+                    <div className="w-full h-40 border border-stone-300 rounded-none overflow-hidden bg-[#fdfbf7]">
+                      <img 
+                        src={formData.image_url} 
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.src = '';
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'flex';
+                        }}
+                      />
+                      <div className="w-full h-full flex items-center justify-center text-red-500 text-sm" style={{ display: 'none' }}>
+                        Invalid or broken image URL
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex gap-4 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  variant="outline"
+                  className="flex-1 border-stone-300 text-[#5a5a5a] hover:bg-stone-100 rounded-full py-6 uppercase tracking-wider"
+                  data-testid="cancel-button"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-wider font-semibold"
+                  data-testid="submit-program-button"
+                >
+                  {editingProgram ? 'Update Program' : 'Create Program'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </Layout>
   );
 }
