@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react'; // Add useCallback
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -32,11 +32,30 @@ export default function UserSessionsPage() {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, []); // Empty dependency array is fine for initial fetch
 
+  // Wrap filterPrograms with useCallback
+  const filterPrograms = useCallback(() => {
+    let filtered = programs;
+
+    if (searchQuery) {
+      filtered = filtered.filter(program =>
+        program.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        program.description?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    if (categoryFilter && categoryFilter !== 'all') {
+      filtered = filtered.filter(program => program.category === categoryFilter);
+    }
+
+    setFilteredPrograms(filtered);
+  }, [programs, searchQuery, categoryFilter]); // Add dependencies for useCallback
+
+  // Now useEffect with proper dependency
   useEffect(() => {
     filterPrograms();
-  }, [programs, searchQuery, categoryFilter]);
+  }, [filterPrograms]); // Only depend on the memoized filterPrograms function
 
   const fetchData = async () => {
     try {
@@ -55,23 +74,6 @@ export default function UserSessionsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterPrograms = () => {
-    let filtered = programs;
-
-    if (searchQuery) {
-      filtered = filtered.filter(program =>
-        program.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        program.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    if (categoryFilter && categoryFilter !== 'all') {
-      filtered = filtered.filter(program => program.category === categoryFilter);
-    }
-
-    setFilteredPrograms(filtered);
   };
 
   const handleBookProgram = (program) => {

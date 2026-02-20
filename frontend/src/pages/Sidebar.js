@@ -13,6 +13,7 @@ import {
   Dumbbell,
   Calendar,
   Layers,
+  Building,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -32,6 +33,7 @@ export default function Sidebar() {
     { path: '/admin/products', icon: ShoppingBag, label: 'Products' },
     { path: '/admin/programs', icon: Layers, label: 'Programs' },
     { path: '/admin/bookings', icon: Calendar, label: 'Bookings' },
+    { path: '/admin/gym-settings', icon: Building, label: 'Gym Settings' },
     { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
     { path: '/admin/users', icon: Users, label: 'Users' },
     { path: '/admin/notifications', icon: Bell, label: 'Notifications' },

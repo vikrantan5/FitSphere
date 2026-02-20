@@ -14,6 +14,7 @@ import BookingsPage from './pages/BookingsPage';
 import OrdersPage from './pages/OrdersPage';
 import UsersPage from './pages/UsersPage';
 import NotificationsPage from './pages/NotificationsPage';
+import GymSettingsPage from './pages/GymSettingsPage';
 import UserDashboard from './pages/UserDashboard';
 import UserLandingPage from './pages/UserLandingPage';
 import UserSessionsPage from './pages/UserSessionsPage';
@@ -202,6 +203,14 @@ function App() {
           element={
             <AdminRoute>
               <BookingsPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/gym-settings"
+          element={
+            <AdminRoute>
+              <GymSettingsPage />
             </AdminRoute>
           }
         />
