@@ -18,7 +18,11 @@ import socketio
 # Import local modules
 from models import *
 from auth import hash_password, verify_password, create_access_token, get_current_admin, get_current_user, get_current_user_or_admin
-from bunny_cdn import upload_to_bunny_cdn, delete_from_bunny_cdn
+from bunny_cdn import (
+    upload_video_to_bunny_stream,
+    delete_bunny_stream_video,
+    upload_to_bunny_storage
+)
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
