@@ -148,19 +148,14 @@ async def upload_video(
     is_free: bool = Form(True),
     admin: dict = Depends(get_current_admin)
 ):
-    """Upload video to Bunny CDN"""
+    """Upload video to Bunny Stream"""
     # Validate file type
     if not file.content_type or not file.content_type.startswith('video/'):
         raise HTTPException(status_code=400, detail="File must be a video")
     
-    # Create destination path
-    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-    safe_filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
-    destination_path = f"videos/{safe_filename}"
-    
     try:
-        # Upload to Bunny CDN
-        upload_result = await upload_to_bunny_cdn(file, destination_path, "video")
+        # Upload to Bunny Stream (not storage)
+        upload_result = await upload_video_to_bunny_stream(file, title)
         
         # Save video metadata to database
         video = Video(
@@ -169,7 +164,9 @@ async def upload_video(
             difficulty=VideoDifficulty(difficulty),
             duration=duration,
             description=description,
-            video_url=upload_result['cdn_url'],
+            video_url=upload_result['playback_url'],  # Use playback URL for streaming
+            embed_url=upload_result['embed_url'],     # Store embed URL separately
+            video_id=upload_result['video_id'],       # Store Bunny video ID
             is_free=is_free
         )
         
@@ -191,8 +188,8 @@ async def upload_video(
         return FileUploadResponse(
             success=True,
             file_name=file.filename,
-            file_url=upload_result['file_url'],
-            cdn_url=upload_result['cdn_url']
+            file_url=upload_result['playback_url'],
+            cdn_url=upload_result['embed_url']
         )
     
     except Exception as e:
@@ -291,16 +288,15 @@ async def update_video(
 
 @api_router.delete("/videos/{video_id}")
 async def delete_video(video_id: str, admin: dict = Depends(get_current_admin)):
-    """Delete video from database and CDN"""
+    """Delete video from database and Bunny Stream"""
     video = await db.videos.find_one({"id": video_id}, {"_id": 0})
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
     
-    # Extract file path from CDN URL
-    cdn_url = video.get('video_url', '')
-    if 'videos/' in cdn_url:
-        file_path = cdn_url.split('/')[-2] + '/' + cdn_url.split('/')[-1]
-        await delete_from_bunny_cdn(file_path)
+    # Delete from Bunny Stream using the stored video_id
+    bunny_video_id = video.get('video_id')
+    if bunny_video_id:
+        await delete_bunny_stream_video(bunny_video_id)
     
     await db.videos.delete_one({"id": video_id})
     
@@ -316,7 +312,7 @@ async def upload_image(
     description: Optional[str] = Form(None),
     admin: dict = Depends(get_current_admin)
 ):
-    """Upload image to Bunny CDN"""
+    """Upload image to Bunny Storage"""
     if not file.content_type or not file.content_type.startswith('image/'):
         raise HTTPException(status_code=400, detail="File must be an image")
     
@@ -325,7 +321,7 @@ async def upload_image(
     destination_path = f"images/{safe_filename}"
     
     try:
-        upload_result = await upload_to_bunny_cdn(file, destination_path, "image")
+        upload_result = await upload_to_bunny_storage(file, destination_path)
         
         image = Image(
             title=title,
@@ -342,7 +338,7 @@ async def upload_image(
         return FileUploadResponse(
             success=True,
             file_name=file.filename,
-            file_url=upload_result['file_url'],
+            file_url=upload_result['cdn_url'],
             cdn_url=upload_result['cdn_url']
         )
     

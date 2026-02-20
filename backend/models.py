@@ -119,15 +119,18 @@ class VideoCreate(BaseModel):
     thumbnail_url: Optional[str] = None
     is_free: bool = True
 
+# UPDATED: Video model with Bunny Stream specific fields
 class Video(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     title: str
     category: VideoCategory
     difficulty: VideoDifficulty
-    duration: int
+    duration: int  # in seconds
     description: str
-    video_url: str
+    video_url: str  # Playback URL for HLS streaming (from Bunny Stream)
+    embed_url: str  # Embed URL for iframe (from Bunny Stream)
+    video_id: str   # Bunny Stream video GUID for management
     thumbnail_url: Optional[str] = None
     is_public: bool = True
     is_free: bool = True  # Free or Premium video
@@ -144,6 +147,7 @@ class VideoUpdate(BaseModel):
     thumbnail_url: Optional[str] = None
     is_public: Optional[bool] = None
     is_free: Optional[bool] = None
+    # Note: video_url, embed_url, video_id are managed by Bunny Stream, not updated directly
 
 class ImageCreate(BaseModel):
     title: str
@@ -247,11 +251,14 @@ class Notification(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     metadata: Optional[dict] = None
 
+# UPDATED: FileUploadResponse with video-specific fields
 class FileUploadResponse(BaseModel):
     success: bool
     file_name: str
     file_url: str
     cdn_url: str
+    video_id: Optional[str] = None
+    embed_url: Optional[str] = None
     message: str = "File uploaded successfully"
 
 class AnalyticsSummary(BaseModel):
@@ -372,7 +379,7 @@ class ProgramCreate(BaseModel):
     difficulty: VideoDifficulty
     trainer_id: str
     image_url: Optional[str] = None
-    video_ids: List[str] = []
+    video_ids: List[str] = []  # References to Video IDs in database
     sessions_per_week: int = 3
     supports_gym_attendance: bool = True
     supports_home_visit: bool = False
@@ -389,7 +396,7 @@ class Program(BaseModel):
     difficulty: VideoDifficulty
     trainer_id: str
     image_url: Optional[str] = None
-    video_ids: List[str] = []
+    video_ids: List[str] = []  # References to Video IDs in database
     sessions_per_week: int = 3
     supports_gym_attendance: bool = True
     supports_home_visit: bool = False
