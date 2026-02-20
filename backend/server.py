@@ -1773,6 +1773,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.api_route("/", methods=["GET", "HEAD"])
+def health():
+    return {"status": "running"}
+
 @app.on_event("startup")
 async def startup_event():
     """Create default admin on startup if none exists"""
