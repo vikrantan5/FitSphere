@@ -1313,7 +1313,7 @@ async def delete_program(program_id: str, admin: dict = Depends(get_current_admi
 
 @api_router.post("/bookings", response_model=Booking)
 async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_current_user)):
-    """Create new booking"""
+    """Create new booking with attendance type and location"""
     # Get user, program, and trainer details
     user_data = await db.users.find_one({"id": user['user_id']}, {"_id": 0})
     program = await db.programs.find_one({"id": booking_data.program_id}, {"_id": 0})
@@ -1326,6 +1326,18 @@ async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_c
     if not trainer:
         raise HTTPException(status_code=404, detail="Trainer not found")
     
+    # Validate attendance type
+    if booking_data.attendance_type == "gym" and not program.get('supports_gym_attendance', True):
+        raise HTTPException(status_code=400, detail="This program does not support gym attendance")
+    
+    if booking_data.attendance_type == "home_visit":
+        if not program.get('supports_home_visit', False):
+            raise HTTPException(status_code=400, detail="This program does not support home visits")
+        if not booking_data.user_location:
+            raise HTTPException(status_code=400, detail="User location is required for home visits")
+        if not booking_data.user_location.get('address') or not booking_data.user_location.get('latitude'):
+            raise HTTPException(status_code=400, detail="Complete location details (address and coordinates) are required")
+    
     # Check if slot is available
     existing_booking = await db.bookings.find_one({
         "trainer_id": booking_data.trainer_id,
@@ -1336,6 +1348,20 @@ async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_c
     
     if existing_booking:
         raise HTTPException(status_code=400, detail="This time slot is already booked")
+    
+    # Calculate amount based on attendance type
+    base_amount = program['price']
+    additional_charge = 0.0
+    if booking_data.attendance_type == "home_visit":
+        additional_charge = program.get('home_visit_additional_charge', 0.0)
+    total_amount = base_amount + additional_charge
+    
+    # Get gym location if gym attendance
+    gym_location = None
+    if booking_data.attendance_type == "gym":
+        gym_settings = await db.gym_settings.find_one({}, {"_id": 0})
+        if gym_settings:
+            gym_location = gym_settings.get('gym_location')
     
     booking = Booking(
         user_id=user['user_id'],
@@ -1348,8 +1374,11 @@ async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_c
         trainer_name=trainer['name'],
         booking_date=booking_data.booking_date,
         time_slot=booking_data.time_slot,
+        attendance_type=booking_data.attendance_type,
+        user_location=booking_data.user_location,
+        gym_location=gym_location,
         notes=booking_data.notes,
-        amount=program['price']
+        amount=total_amount
     )
     
     booking_dict = booking.model_dump()
@@ -1359,9 +1388,10 @@ async def create_booking(booking_data: BookingCreate, user: dict = Depends(get_c
     await db.bookings.insert_one(booking_dict)
     
     # Create notification for admin
+    attendance_text = "at gym" if booking_data.attendance_type == "gym" else "at home"
     notification = Notification(
         notification_type=NotificationType.NEW_ORDER,
-        message=f"New booking: {user_data['name']} booked {program['title']} on {booking_data.booking_date}"
+        message=f"New booking: {user_data['name']} booked {program['title']} {attendance_text} on {booking_data.booking_date}"
     )
     notif_dict = notification.model_dump()
     notif_dict['created_at'] = notif_dict['created_at'].isoformat()
@@ -1602,6 +1632,75 @@ async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
     writer = csv.writer(output)
     
     # Write headers
+
+# ==================== GYM SETTINGS ENDPOINTS ====================
+
+@api_router.get("/gym-settings")
+async def get_gym_settings():
+    """Get gym settings (public endpoint)"""
+    settings = await db.gym_settings.find_one({}, {"_id": 0})
+    if not settings:
+        return None
+    
+    # Convert datetime fields if needed
+    if settings.get('created_at') and isinstance(settings['created_at'], str):
+        settings['created_at'] = datetime.fromisoformat(settings['created_at'])
+    if settings.get('updated_at') and isinstance(settings['updated_at'], str):
+        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
+    
+    return settings
+
+@api_router.post("/gym-settings")
+async def save_gym_settings(settings_data: GymSettingsCreate, admin: dict = Depends(get_current_admin)):
+    """Save or update gym settings (admin only)"""
+    # Validate location
+    if not settings_data.gym_location.address or settings_data.gym_location.latitude == 0:
+        raise HTTPException(status_code=400, detail="Valid gym location is required")
+    
+    # Check if settings exist
+    existing = await db.gym_settings.find_one({}, {"_id": 0})
+    
+    gym_location_dict = {
+        "address": settings_data.gym_location.address,
+        "latitude": settings_data.gym_location.latitude,
+        "longitude": settings_data.gym_location.longitude
+    }
+    
+    if existing:
+        # Update existing settings
+        update_data = {
+            "gym_name": settings_data.gym_name,
+            "gym_location": gym_location_dict,
+            "contact_phone": settings_data.contact_phone,
+            "contact_email": settings_data.contact_email,
+            "operating_hours": settings_data.operating_hours,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        await db.gym_settings.update_one(
+            {"id": existing['id']},
+            {"$set": update_data}
+        )
+        
+        return {"message": "Gym settings updated successfully"}
+    else:
+        # Create new settings
+        new_settings = GymSettings(
+            gym_name=settings_data.gym_name,
+            gym_location=gym_location_dict,
+            contact_phone=settings_data.contact_phone,
+            contact_email=settings_data.contact_email,
+            operating_hours=settings_data.operating_hours
+        )
+        
+        settings_dict = new_settings.model_dump()
+        settings_dict['created_at'] = settings_dict['created_at'].isoformat()
+        settings_dict['updated_at'] = settings_dict['updated_at'].isoformat()
+        
+        await db.gym_settings.insert_one(settings_dict)
+        
+        return {"message": "Gym settings created successfully"}
+
     writer.writerow([
         "Booking ID", "User Name", "Email", "Phone",
         "Program", "Trainer", "Date", "Time Slot",

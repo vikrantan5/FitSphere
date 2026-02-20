@@ -22,6 +22,10 @@ class PaymentStatus(str, Enum):
     FAILED = "failed"
     REFUNDED = "refunded"
 
+class AttendanceType(str, Enum):
+    GYM = "gym"
+    HOME_VISIT = "home_visit"
+
 class VideoCategory(str, Enum):
     YOGA = "yoga"
     CARDIO = "cardio"
@@ -333,6 +337,31 @@ class TrainerUpdate(BaseModel):
     certifications: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
+# Location Models
+class Location(BaseModel):
+    address: str
+    latitude: float
+    longitude: float
+
+# Gym Settings Models
+class GymSettingsCreate(BaseModel):
+    gym_name: str
+    gym_location: Location
+    contact_phone: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    operating_hours: Optional[str] = None
+
+class GymSettings(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    gym_name: str
+    gym_location: dict  # {address, latitude, longitude}
+    contact_phone: Optional[str] = None
+    contact_email: Optional[str] = None
+    operating_hours: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 # Program Models
 class ProgramCreate(BaseModel):
     title: str
@@ -345,6 +374,9 @@ class ProgramCreate(BaseModel):
     image_url: Optional[str] = None
     video_ids: List[str] = []
     sessions_per_week: int = 3
+    supports_gym_attendance: bool = True
+    supports_home_visit: bool = False
+    home_visit_additional_charge: float = 0.0
 
 class Program(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -359,6 +391,9 @@ class Program(BaseModel):
     image_url: Optional[str] = None
     video_ids: List[str] = []
     sessions_per_week: int = 3
+    supports_gym_attendance: bool = True
+    supports_home_visit: bool = False
+    home_visit_additional_charge: float = 0.0
     is_active: bool = True
     enrolled_count: int = 0
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -375,6 +410,9 @@ class ProgramUpdate(BaseModel):
     image_url: Optional[str] = None
     video_ids: Optional[List[str]] = None
     sessions_per_week: Optional[int] = None
+    supports_gym_attendance: Optional[bool] = None
+    supports_home_visit: Optional[bool] = None
+    home_visit_additional_charge: Optional[float] = None
     is_active: Optional[bool] = None
 
 # Booking/Session Models
@@ -389,6 +427,8 @@ class BookingCreate(BaseModel):
     trainer_id: str
     booking_date: str  # ISO format date
     time_slot: str  # e.g., "09:00-10:00"
+    attendance_type: AttendanceType
+    user_location: Optional[dict] = None  # Required if attendance_type is HOME_VISIT
     notes: Optional[str] = None
 
 class Booking(BaseModel):
@@ -404,6 +444,9 @@ class Booking(BaseModel):
     trainer_name: str
     booking_date: str
     time_slot: str
+    attendance_type: AttendanceType = AttendanceType.GYM
+    user_location: Optional[dict] = None  # {address, latitude, longitude}
+    gym_location: Optional[dict] = None  # {address, latitude, longitude}
     status: BookingStatus = BookingStatus.PENDING
     notes: Optional[str] = None
     payment_status: PaymentStatus = PaymentStatus.PENDING

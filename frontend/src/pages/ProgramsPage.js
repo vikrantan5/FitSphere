@@ -31,7 +31,10 @@ export default function ProgramsPage() {
     trainer_id: '',
     image_url: '',
     sessions_per_week: 3,
-    video_ids: []
+    video_ids: [],
+    supports_gym_attendance: true,
+    supports_home_visit: false,
+    home_visit_additional_charge: 0
   });
 
   useEffect(() => {
@@ -76,6 +79,12 @@ export default function ProgramsPage() {
     e.preventDefault();
     const token = localStorage.getItem('token');
     
+    // Validate at least one attendance option
+    if (!formData.supports_gym_attendance && !formData.supports_home_visit) {
+      toast.error('Please select at least one attendance option (Gym or Home Visit)');
+      return;
+    }
+    
     // Validate image URL if provided (allow both http and https, or empty)
     if (formData.image_url && formData.image_url.trim() !== '' && !isValidImageUrl(formData.image_url)) {
       toast.error('Please enter a valid image URL (must start with http:// or https://)');
@@ -88,7 +97,8 @@ export default function ProgramsPage() {
         image_url: formData.image_url.trim() || undefined, // Send undefined if empty
         duration_weeks: parseInt(formData.duration_weeks),
         price: parseFloat(formData.price),
-        sessions_per_week: parseInt(formData.sessions_per_week)
+        sessions_per_week: parseInt(formData.sessions_per_week),
+        home_visit_additional_charge: parseFloat(formData.home_visit_additional_charge) || 0
       };
 
       if (editingProgram) {
@@ -129,7 +139,10 @@ export default function ProgramsPage() {
       trainer_id: program.trainer_id,
       image_url: program.image_url || '',
       sessions_per_week: program.sessions_per_week || 3,
-      video_ids: program.video_ids || []
+      video_ids: program.video_ids || [],
+      supports_gym_attendance: program.supports_gym_attendance !== undefined ? program.supports_gym_attendance : true,
+      supports_home_visit: program.supports_home_visit || false,
+      home_visit_additional_charge: program.home_visit_additional_charge || 0
     });
     setShowModal(true);
   };
@@ -161,7 +174,10 @@ export default function ProgramsPage() {
       trainer_id: '',
       image_url: '',
       sessions_per_week: 3,
-      video_ids: []
+      video_ids: [],
+      supports_gym_attendance: true,
+      supports_home_visit: false,
+      home_visit_additional_charge: 0
     });
     setEditingProgram(null);
   };
@@ -229,10 +245,27 @@ export default function ProgramsPage() {
                     <div className="flex items-center">
                       <DollarSign className="w-4 h-4 mr-2 text-[#0f5132]" />
                       <span className="font-bold text-[#ff7f50]" data-testid={`program-price-${idx}`}>₹{program.price}</span>
+                      {program.supports_home_visit && program.home_visit_additional_charge > 0 && (
+                        <span className="ml-2 text-xs text-[#8b5cf6]">(+₹{program.home_visit_additional_charge} for home)</span>
+                      )}
                     </div>
                     <div className="flex items-center">
                       <Award className="w-4 h-4 mr-2 text-[#0f5132]" />
                       <span>{program.enrolled_count || 0} enrolled</span>
+                    </div>
+                    
+                    {/* Attendance Mode Badges */}
+                    <div className="flex gap-2 pt-2">
+                      {program.supports_gym_attendance && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                          🏋️ Gym
+                        </span>
+                      )}
+                      {program.supports_home_visit && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          🏠 Home Visit
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -409,6 +442,67 @@ export default function ProgramsPage() {
                 {trainers.length === 0 && (
                   <p className="text-xs text-yellow-600 mt-1">No trainers found. Please create a trainer first.</p>
                 )}
+              </div>
+
+              {/* Attendance Mode Options */}
+              <div className="border border-stone-200 p-4 rounded-lg bg-gray-50">
+                <Label className="text-sm uppercase tracking-wider text-[#5a5a5a] mb-3 block">Attendance Options</Label>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="supports_gym_attendance"
+                      checked={formData.supports_gym_attendance}
+                      onChange={(e) => setFormData({ ...formData, supports_gym_attendance: e.target.checked })}
+                      className="h-4 w-4 text-[#0f5132] border-stone-300 rounded focus:ring-[#0f5132]"
+                      data-testid="gym-attendance-checkbox"
+                    />
+                    <label htmlFor="supports_gym_attendance" className="ml-2 text-sm text-gray-700">
+                      🏋️ Supports Gym Attendance
+                    </label>
+                  </div>
+
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="supports_home_visit"
+                      checked={formData.supports_home_visit}
+                      onChange={(e) => setFormData({ ...formData, supports_home_visit: e.target.checked })}
+                      className="h-4 w-4 text-[#8b5cf6] border-stone-300 rounded focus:ring-[#8b5cf6]"
+                      data-testid="home-visit-checkbox"
+                    />
+                    <label htmlFor="supports_home_visit" className="ml-2 text-sm text-gray-700">
+                      🏠 Supports Home Visits
+                    </label>
+                  </div>
+
+                  {formData.supports_home_visit && (
+                    <div className="ml-6 mt-2">
+                      <Label htmlFor="home_visit_additional_charge" className="text-xs text-gray-600">
+                        Additional Charge for Home Visits (₹)
+                      </Label>
+                      <Input
+                        id="home_visit_additional_charge"
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        placeholder="500"
+                        value={formData.home_visit_additional_charge}
+                        onChange={(e) => setFormData({ ...formData, home_visit_additional_charge: parseFloat(e.target.value) || 0 })}
+                        className="bg-white border border-stone-300 rounded-none px-3 py-2 focus:border-[#8b5cf6] focus:ring-0 mt-1"
+                        data-testid="home-visit-charge-input"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        This amount will be added to the base price for home visit bookings
+                      </p>
+                    </div>
+                  )}
+
+                  {!formData.supports_gym_attendance && !formData.supports_home_visit && (
+                    <p className="text-xs text-red-500 mt-2">⚠️ At least one attendance option must be selected</p>
+                  )}
+                </div>
               </div>
 
               {/* Image URL Input */}

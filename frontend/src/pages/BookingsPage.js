@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { bookingAPI } from '../lib/api';
 import Layout from '../components/Layout';
-import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle, Dumbbell, Home, MapPin } from 'lucide-react';
 import { toast } from 'sonner';
 import { Card } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
+import LocationDisplay from '@/components/LocationDisplay';
 
 export default function BookingsPage() {
   const [bookings, setBookings] = useState([]);
@@ -120,6 +121,9 @@ export default function BookingsPage() {
                       Trainer
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Attendance
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Date & Time
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -155,6 +159,32 @@ export default function BookingsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm text-gray-700">{booking.trainer_name}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        {booking.attendance_type === 'gym' ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Dumbbell className="h-4 w-4 text-emerald-600" />
+                            <span className="text-emerald-700 font-medium">At Gym</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1 text-sm">
+                            <Home className="h-4 w-4 text-purple-600" />
+                            <span className="text-purple-700 font-medium">Home Visit</span>
+                          </div>
+                        )}
+                        {/* Show location indicator */}
+                        {booking.attendance_type === 'gym' && booking.gym_location && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            <MapPin className="h-3 w-3 inline mr-1" />
+                            Gym Location
+                          </div>
+                        )}
+                        {booking.attendance_type === 'home_visit' && booking.user_location && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            <MapPin className="h-3 w-3 inline mr-1" />
+                            User Location
+                          </div>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-2">

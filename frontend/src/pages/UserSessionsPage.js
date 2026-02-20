@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react'; // Add useCallback
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -7,14 +7,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dumbbell, Clock, Users, Star, Calendar, Search, CheckCircle } from 'lucide-react';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Dumbbell, Clock, Users, Star, Calendar, Search, CheckCircle, MapPin, Home } from 'lucide-react';
 import { programAPI, trainerAPI, bookingAPI } from '../utils/api';
 import { toast } from 'sonner';
+import LocationPicker from '@/components/LocationPicker';
+import LocationDisplay from '@/components/LocationDisplay';
+import axios from 'axios';
+
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+const API = `${BACKEND_URL}/api`;
 
 export default function UserSessionsPage() {
   const navigate = useNavigate();
   const [programs, setPrograms] = useState([]);
   const [trainers, setTrainers] = useState([]);
+  const [gymSettings, setGymSettings] = useState(null);
   const [filteredPrograms, setFilteredPrograms] = useState([]);
   const [myBookings, setMyBookings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -27,14 +35,16 @@ export default function UserSessionsPage() {
   const [bookingForm, setBookingForm] = useState({
     booking_date: '',
     time_slot: '',
+    attendance_type: 'gym',
+    user_location: null,
     notes: ''
   });
 
   useEffect(() => {
     fetchData();
-  }, []); // Empty dependency array is fine for initial fetch
+    fetchGymSettings();
+  }, []);
 
-  // Wrap filterPrograms with useCallback
   const filterPrograms = useCallback(() => {
     let filtered = programs;
 
@@ -50,12 +60,20 @@ export default function UserSessionsPage() {
     }
 
     setFilteredPrograms(filtered);
-  }, [programs, searchQuery, categoryFilter]); // Add dependencies for useCallback
+  }, [programs, searchQuery, categoryFilter]);
 
-  // Now useEffect with proper dependency
   useEffect(() => {
     filterPrograms();
-  }, [filterPrograms]); // Only depend on the memoized filterPrograms function
+  }, [filterPrograms]);
+
+  const fetchGymSettings = async () => {
+    try {
+      const response = await axios.get(`${API}/gym-settings`);
+      setGymSettings(response.data);
+    } catch (error) {
+      console.error('Failed to load gym settings:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -79,7 +97,17 @@ export default function UserSessionsPage() {
   const handleBookProgram = (program) => {
     setSelectedProgram(program);
     setShowBookingModal(true);
-    setBookingForm({ booking_date: '', time_slot: '', notes: '' });
+    
+    // Set default attendance type based on program support
+    const defaultType = program.supports_gym_attendance ? 'gym' : 'home_visit';
+    
+    setBookingForm({ 
+      booking_date: '', 
+      time_slot: '', 
+      attendance_type: defaultType,
+      user_location: null,
+      notes: '' 
+    });
     setAvailableSlots([]);
     setSelectedTrainer(program.trainer_id || '');
   };
@@ -109,6 +137,19 @@ export default function UserSessionsPage() {
     }
   };
 
+  const handleLocationChange = (location) => {
+    setBookingForm({ ...bookingForm, user_location: location });
+  };
+
+  const calculateTotalAmount = () => {
+    if (!selectedProgram) return 0;
+    const basePrice = selectedProgram.price || 0;
+    const additionalCharge = (bookingForm.attendance_type === 'home_visit') 
+      ? (selectedProgram.home_visit_additional_charge || 0) 
+      : 0;
+    return basePrice + additionalCharge;
+  };
+
   const handleBookingSubmit = async (e) => {
     e.preventDefault();
 
@@ -117,16 +158,28 @@ export default function UserSessionsPage() {
       return;
     }
 
+    // Validate location for home visits
+    if (bookingForm.attendance_type === 'home_visit') {
+      if (!bookingForm.user_location || !bookingForm.user_location.address) {
+        toast.error('Please provide your location for home visit');
+        return;
+      }
+    }
+
     try {
-      await bookingAPI.create({
+      const payload = {
         program_id: selectedProgram.id,
         trainer_id: selectedTrainer,
         booking_date: bookingForm.booking_date,
         time_slot: bookingForm.time_slot,
+        attendance_type: bookingForm.attendance_type,
+        user_location: bookingForm.attendance_type === 'home_visit' ? bookingForm.user_location : undefined,
         notes: bookingForm.notes
-      });
+      };
 
-      toast.success('Session booked successfully!');
+      await bookingAPI.create(payload);
+
+      toast.success('Session booked successfully! Proceed to payment.');
       setShowBookingModal(false);
       fetchData();
     } catch (error) {
@@ -207,7 +260,29 @@ export default function UserSessionsPage() {
                       <Clock className="inline h-4 w-4 mr-1" />
                       {booking.booking_date} at {booking.time_slot}
                     </p>
-                    <div className="flex gap-2">
+                    
+                    {/* Attendance Mode Display */}
+                    <div className="flex items-center gap-1 text-sm">
+                      {booking.attendance_type === 'gym' ? (
+                        <><Dumbbell className="h-4 w-4 text-emerald-600" /> <span className="text-emerald-600 font-medium">At Gym</span></>
+                      ) : (
+                        <><Home className="h-4 w-4 text-purple-600" /> <span className="text-purple-600 font-medium">Home Visit</span></>
+                      )}
+                    </div>
+                    
+                    {/* Location Display */}
+                    {booking.attendance_type === 'gym' && booking.gym_location && (
+                      <div className="mt-2">
+                        <LocationDisplay location={booking.gym_location} title="Gym Location" />
+                      </div>
+                    )}
+                    {booking.attendance_type === 'home_visit' && booking.user_location && (
+                      <div className="mt-2">
+                        <LocationDisplay location={booking.user_location} title="Your Location" />
+                      </div>
+                    )}
+                    
+                    <div className="flex gap-2 flex-wrap">
                       <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking.status)}`}>
                         {booking.status}
                       </span>
@@ -215,6 +290,8 @@ export default function UserSessionsPage() {
                         {booking.payment_status === 'success' ? 'Paid' : 'Pending'}
                       </span>
                     </div>
+                    
+                    <p className="text-sm font-semibold text-purple-600">₹{booking.amount}</p>
                   </div>
                 </Card>
               ))}
@@ -252,70 +329,70 @@ export default function UserSessionsPage() {
 
         {/* Programs Grid */}
         {loading ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-500">Loading programs...</div>
-          </div>
-        ) : filteredPrograms.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-500">No programs found</div>
-          </div>
+          <div className="text-center py-12">Loading programs...</div>
         ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="programs-grid">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPrograms.map((program) => (
-              <Card key={program.id} className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105" data-testid="program-card">
-                <div className="h-56 bg-gradient-to-br from-purple-400 via-pink-400 to-purple-500 flex items-center justify-center relative">
-                  {program.image_url ? (
+              <Card key={program.id} className="overflow-hidden hover:shadow-xl transition-shadow" data-testid="program-card">
+                <div className="relative h-48 bg-gradient-to-br from-purple-500 to-pink-500">
+                  {program.image_url && (
                     <img src={program.image_url} alt={program.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <Dumbbell className="h-20 w-20 text-white/80" />
                   )}
-                  <span className={`absolute top-4 right-4 px-3 py-1 text-xs rounded-full font-semibold ${getDifficultyColor(program.difficulty)}`}>
+                  <div className={`absolute top-2 right-2 px-2 py-1 text-xs rounded-full font-semibold ${getDifficultyColor(program.difficulty)}`}>
                     {program.difficulty}
-                  </span>
+                  </div>
                 </div>
                 <div className="p-6">
-                  <div className="text-sm text-purple-600 font-semibold mb-2 uppercase">
-                    {program.category}
-                  </div>
-                  <h3 className="font-bold text-xl mb-2">{program.title}</h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {program.description}
-                  </p>
-
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <span className="text-3xl font-bold text-purple-600">₹{program.price}</span>
-                      <span className="text-sm text-gray-500 ml-2">/{program.duration_weeks} weeks</span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                  <h3 className="font-bold text-xl mb-2" data-testid="program-title">{program.title}</h3>
+                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{program.description}</p>
+                  
+                  <div className="space-y-2 text-sm text-gray-700 mb-4">
                     <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-1" />
-                      <span>{program.enrolled_count} enrolled</span>
+                      <Users className="h-4 w-4 mr-2 text-purple-600" />
+                      <span>Trainer: {getTrainerName(program.trainer_id)}</span>
                     </div>
                     <div className="flex items-center">
-                      <Star className="h-4 w-4 mr-1 fill-yellow-400 text-yellow-400" />
-                      <span>4.8</span>
+                      <Clock className="h-4 w-4 mr-2 text-purple-600" />
+                      <span>{program.duration_weeks} weeks • {program.sessions_per_week}x/week</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="font-bold text-purple-600 text-lg">₹{program.price}</span>
+                      {program.supports_home_visit && program.home_visit_additional_charge > 0 && (
+                        <span className="ml-2 text-xs text-gray-500">(+₹{program.home_visit_additional_charge} home)</span>
+                      )}
                     </div>
                   </div>
 
-                  <div className="mb-4">
-                    <p className="text-xs text-gray-500">Trainer: {getTrainerName(program.trainer_id)}</p>
-                    <p className="text-xs text-gray-500">{program.sessions_per_week} sessions/week</p>
+                  {/* Attendance Options */}
+                  <div className="flex gap-2 mb-4">
+                    {program.supports_gym_attendance && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-medium">
+                        🏋️ Gym
+                      </span>
+                    )}
+                    {program.supports_home_visit && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium">
+                        🏠 Home Visit
+                      </span>
+                    )}
                   </div>
 
-                  <Button
+                  <Button 
                     onClick={() => handleBookProgram(program)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600"
-                    disabled={!program.is_active}
-                    data-testid="book-session-btn"
+                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    data-testid="book-now-button"
                   >
-                    {program.is_active ? 'Book Session' : 'Unavailable'}
+                    Book Now
                   </Button>
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+
+        {filteredPrograms.length === 0 && !loading && (
+          <div className="text-center py-12 text-gray-500">
+            No programs found matching your criteria
           </div>
         )}
       </div>
@@ -324,103 +401,155 @@ export default function UserSessionsPage() {
       <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Book Training Session</DialogTitle>
+            <DialogTitle>Book Session: {selectedProgram?.title}</DialogTitle>
           </DialogHeader>
-          
-          {selectedProgram && (
-            <form onSubmit={handleBookingSubmit} className="space-y-4">
-              <div>
-                <Label>Program</Label>
-                <Input value={selectedProgram.title} disabled className="bg-gray-50" />
-              </div>
 
+          <form onSubmit={handleBookingSubmit} className="space-y-6">
+            {/* Attendance Type Selection */}
+            <div>
+              <Label className="text-sm font-semibold mb-3 block">Select Attendance Mode</Label>
+              <RadioGroup 
+                value={bookingForm.attendance_type} 
+                onValueChange={(value) => setBookingForm({ ...bookingForm, attendance_type: value })}
+                className="space-y-3"
+              >
+                {selectedProgram?.supports_gym_attendance && (
+                  <div className="flex items-center space-x-2 border border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                    <RadioGroupItem value="gym" id="gym" />
+                    <label htmlFor="gym" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <Dumbbell className="h-5 w-5 text-emerald-600" />
+                        <span className="font-semibold text-emerald-900">Attend at Gym</span>
+                      </div>
+                      <p className="text-sm text-emerald-700 ml-7">Come to our gym location</p>
+                      <p className="text-sm font-semibold text-emerald-800 ml-7 mt-1">₹{selectedProgram?.price}</p>
+                    </label>
+                  </div>
+                )}
+
+                {selectedProgram?.supports_home_visit && (
+                  <div className="flex items-center space-x-2 border border-purple-200 rounded-lg p-4 bg-purple-50">
+                    <RadioGroupItem value="home_visit" id="home_visit" />
+                    <label htmlFor="home_visit" className="flex-1 cursor-pointer">
+                      <div className="flex items-center gap-2">
+                        <Home className="h-5 w-5 text-purple-600" />
+                        <span className="font-semibold text-purple-900">Trainer Visits Your Home</span>
+                      </div>
+                      <p className="text-sm text-purple-700 ml-7">Personal training at your location</p>
+                      <p className="text-sm font-semibold text-purple-800 ml-7 mt-1">
+                        ₹{(selectedProgram?.price || 0) + (selectedProgram?.home_visit_additional_charge || 0)}
+                        {selectedProgram?.home_visit_additional_charge > 0 && (
+                          <span className="text-xs ml-1">(+₹{selectedProgram?.home_visit_additional_charge})</span>
+                        )}
+                      </p>
+                    </label>
+                  </div>
+                )}
+              </RadioGroup>
+            </div>
+
+            {/* Gym Location Display */}
+            {bookingForm.attendance_type === 'gym' && gymSettings?.gym_location && (
+              <div className="border border-emerald-200 rounded-lg p-4 bg-emerald-50">
+                <LocationDisplay 
+                  location={gymSettings.gym_location} 
+                  title="Gym Location" 
+                />
+              </div>
+            )}
+
+            {/* Home Visit Location Picker */}
+            {bookingForm.attendance_type === 'home_visit' && (
+              <div className="border border-purple-200 rounded-lg p-4 bg-purple-50">
+                <LocationPicker
+                  label="Your Home Location"
+                  initialLocation={bookingForm.user_location}
+                  onLocationChange={handleLocationChange}
+                />
+              </div>
+            )}
+
+            {/* Trainer Selection */}
+            <div>
+              <Label>Select Trainer</Label>
+              <Select value={selectedTrainer} onValueChange={handleTrainerChange}>
+                <SelectTrigger className="mt-2">
+                  <SelectValue placeholder="Choose a trainer" />
+                </SelectTrigger>
+                <SelectContent>
+                  {trainers.filter(t => t.is_active).map((trainer) => (
+                    <SelectItem key={trainer.id} value={trainer.id}>
+                      {trainer.name} - {trainer.specialization}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Date Selection */}
+            <div>
+              <Label>Booking Date</Label>
+              <Input
+                type="date"
+                value={bookingForm.booking_date}
+                onChange={(e) => handleDateChange(e.target.value)}
+                min={new Date().toISOString().split('T')[0]}
+                className="mt-2"
+                required
+              />
+            </div>
+
+            {/* Time Slot Selection */}
+            {availableSlots.length > 0 && (
               <div>
-                <Label htmlFor="trainer">Select Trainer *</Label>
-                <Select value={selectedTrainer} onValueChange={handleTrainerChange} required>
-                  <SelectTrigger id="trainer" data-testid="trainer-select">
-                    <SelectValue placeholder="Choose a trainer" />
+                <Label>Available Time Slots</Label>
+                <Select value={bookingForm.time_slot} onValueChange={(value) => setBookingForm({ ...bookingForm, time_slot: value })}>
+                  <SelectTrigger className="mt-2">
+                    <SelectValue placeholder="Select a time slot" />
                   </SelectTrigger>
                   <SelectContent>
-                    {trainers.map(trainer => (
-                      <SelectItem key={trainer.id} value={trainer.id}>
-                        {trainer.name} - {trainer.specialization}
-                      </SelectItem>
+                    {availableSlots.map((slot) => (
+                      <SelectItem key={slot} value={slot}>{slot}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="booking_date">Booking Date *</Label>
-                <Input
-                  id="booking_date"
-                  type="date"
-                  value={bookingForm.booking_date}
-                  onChange={(e) => handleDateChange(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  required
-                  data-testid="booking-date"
-                />
+            {/* Notes */}
+            <div>
+              <Label>Additional Notes (Optional)</Label>
+              <Textarea
+                value={bookingForm.notes}
+                onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
+                placeholder="Any special requirements or notes..."
+                className="mt-2"
+                rows={3}
+              />
+            </div>
+
+            {/* Total Amount */}
+            <div className="bg-gray-100 p-4 rounded-lg">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-lg">Total Amount:</span>
+                <span className="font-bold text-2xl text-purple-600">₹{calculateTotalAmount()}</span>
               </div>
+            </div>
 
-              {availableSlots.length > 0 && (
-                <div>
-                  <Label htmlFor="time_slot">Available Time Slots *</Label>
-                  <Select 
-                    value={bookingForm.time_slot} 
-                    onValueChange={(value) => setBookingForm({ ...bookingForm, time_slot: value })}
-                    required
-                  >
-                    <SelectTrigger id="time_slot" data-testid="time-slot-select">
-                      <SelectValue placeholder="Choose a time slot" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableSlots.map(slot => (
-                        <SelectItem key={slot} value={slot}>
-                          {slot}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {bookingForm.booking_date && selectedTrainer && availableSlots.length === 0 && (
-                <p className="text-sm text-red-600">No available slots for this date. Please choose another date.</p>
-              )}
-
-              <div>
-                <Label htmlFor="notes">Notes (Optional)</Label>
-                <Textarea
-                  id="notes"
-                  value={bookingForm.notes}
-                  onChange={(e) => setBookingForm({ ...bookingForm, notes: e.target.value })}
-                  placeholder="Any special requirements or questions..."
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button
-                  type="submit"
-                  className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600"
-                  disabled={!bookingForm.time_slot || availableSlots.length === 0}
-                  data-testid="confirm-booking-btn"
-                >
-                  <CheckCircle className="h-4 w-4 mr-2" />
-                  Confirm Booking
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowBookingModal(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          )}
+            {/* Submit Button */}
+            <div className="flex gap-4">
+              <Button type="button" variant="outline" onClick={() => setShowBookingModal(false)} className="flex-1">
+                Cancel
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600"
+                disabled={!bookingForm.booking_date || !bookingForm.time_slot || !selectedTrainer}
+              >
+                Confirm Booking
+              </Button>
+            </div>
+          </form>
         </DialogContent>
       </Dialog>
     </div>
