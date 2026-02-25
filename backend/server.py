@@ -62,6 +62,81 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+
+# ==================== VIDEO URL NORMALIZATION HELPERS ====================
+
+def normalize_video_url(video_url: str) -> dict:
+    """
+    Normalize video URL and generate embed_url and video_id if missing.
+    Supports: YouTube, Vimeo, MP4, CDN URLs
+    """
+    result = {
+        "video_url": video_url,
+        "embed_url": None,
+        "video_id": None
+    }
+    
+    # YouTube detection
+    if "youtube.com" in video_url or "youtu.be" in video_url:
+        # Extract video ID
+        if "youtu.be/" in video_url:
+            video_id = video_url.split("youtu.be/")[-1].split("?")[0]
+        elif "v=" in video_url:
+            video_id = video_url.split("v=")[-1].split("&")[0]
+        else:
+            video_id = video_url.split("/")[-1].split("?")[0]
+        
+        result["video_id"] = video_id
+        result["embed_url"] = f"https://www.youtube.com/embed/{video_id}"
+        result["video_url"] = video_url
+    
+    # Vimeo detection
+    elif "vimeo.com" in video_url:
+        video_id = video_url.split("/")[-1].split("?")[0]
+        result["video_id"] = video_id
+        result["embed_url"] = f"https://player.vimeo.com/video/{video_id}"
+        result["video_url"] = video_url
+    
+    # Bunny Stream detection
+    elif "mediadelivery.net" in video_url or "b-cdn.net" in video_url:
+        # Already a CDN URL, keep as is
+        if "iframe.mediadelivery.net" in video_url:
+            result["embed_url"] = video_url
+            # Try to extract video ID from embed URL
+            try:
+                parts = video_url.split("/")
+                if len(parts) >= 2:
+                    result["video_id"] = parts[-1]
+            except:
+                pass
+        else:
+            result["video_url"] = video_url
+    
+    # MP4 or other direct video URLs
+    else:
+        # Direct video URL - no embed needed
+        result["video_url"] = video_url
+        result["embed_url"] = None
+        result["video_id"] = None
+    
+    return result
+
+def transform_video_response(video: dict) -> dict:
+    """
+    Transform video document to ensure all required fields exist.
+    Handles both old and new video formats.
+    """
+    # If embed_url or video_id is missing, try to generate them
+    if not video.get("embed_url") or not video.get("video_id"):
+        normalized = normalize_video_url(video.get("video_url", ""))
+        if not video.get("embed_url"):
+            video["embed_url"] = normalized["embed_url"]
+        if not video.get("video_id"):
+            video["video_id"] = normalized["video_id"]
+    
+    return video
+
 # ==================== AUTHENTICATION ENDPOINTS ====================
 
 @api_router.post("/auth/login", response_model=AdminLoginResponse)
@@ -1851,7 +1926,6 @@ async def verify_booking_payment(
                 "error_code": "VERIFICATION_ERROR"
             }
         )
-
 @api_router.get("/bookings/export/csv")
 async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
     """Export bookings to CSV"""
@@ -1862,6 +1936,36 @@ async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
     writer = csv.writer(output)
     
     # Write headers
+    writer.writerow([
+        "Booking ID", "User Name", "Email", "Phone",
+        "Program", "Trainer", "Date", "Time Slot",
+        "Status", "Payment Status", "Amount", "Created At"
+    ])
+    
+    # Write data
+    for booking in bookings:
+        writer.writerow([
+            booking['id'],
+            booking['user_name'],
+            booking['user_email'],
+            booking.get('user_phone', ''),
+            booking['program_title'],
+            booking['trainer_name'],
+            booking['booking_date'],
+            booking['time_slot'],
+            booking['status'],
+            booking['payment_status'],
+            booking['amount'],
+            booking['created_at']
+        ])
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=bookings.csv"}
+    )
 
 # ==================== GYM SETTINGS ENDPOINTS ====================
 
