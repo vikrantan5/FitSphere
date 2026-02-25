@@ -1774,9 +1774,10 @@ app.add_middleware(
 )
 
 
-@app.api_route("/", methods=["GET", "HEAD"])
-def health():
-    return {"status": "running"}
+@app.api_route("/ping", methods=["GET", "HEAD"])
+async def ping():
+    """Uptime monitoring endpoint - called every 5 minutes"""
+    return {"status": "running", "timestamp": datetime.utcnow().isoformat()}
 
 @app.on_event("startup")
 async def startup_event():
