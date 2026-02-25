@@ -40,9 +40,23 @@ export default function UserSessionsPage() {
     notes: ''
   });
 
+
+    const [payingBookingId, setPayingBookingId] = useState(null);
+
   useEffect(() => {
     fetchData();
     fetchGymSettings();
+      // Load Razorpay script dynamically
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    document.body.appendChild(script);
+    
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
   }, []);
 
   const filterPrograms = useCallback(() => {
@@ -141,6 +155,74 @@ export default function UserSessionsPage() {
     setBookingForm({ ...bookingForm, user_location: location });
   };
 
+
+  const handlePayForBooking = async (booking) => {
+    try {
+      setPayingBookingId(booking.id);
+      
+      // Create payment for the booking
+      const paymentResponse = await bookingAPI.createPayment(booking.id);
+      
+      // Check if Razorpay is loaded
+      if (!window.Razorpay) {
+        toast.error('Payment gateway not loaded. Please refresh the page.');
+        setPayingBookingId(null);
+        return;
+      }
+      
+      // Initialize Razorpay
+      const options = {
+        key: paymentResponse.data.razorpay_key_id,
+        amount: paymentResponse.data.amount,
+        currency: paymentResponse.data.currency,
+        name: 'FitSphere',
+        description: `Training Session: ${booking.program_title}`,
+        order_id: paymentResponse.data.razorpay_order_id,
+        handler: async function (paymentResult) {
+          try {
+            // Create FormData and append payment details
+            const verifyData = new FormData();
+            verifyData.append('razorpay_order_id', paymentResult.razorpay_order_id);
+            verifyData.append('razorpay_payment_id', paymentResult.razorpay_payment_id);
+            verifyData.append('razorpay_signature', paymentResult.razorpay_signature);
+
+            await bookingAPI.verifyPayment(booking.id, verifyData);
+            
+            toast.success('Payment successful!');
+            setPayingBookingId(null);
+            fetchData(); // Refresh bookings list
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast.error('Payment verification failed');
+            setPayingBookingId(null);
+          }
+        },
+        prefill: {
+          name: JSON.parse(localStorage.getItem('user') || '{}').name || '',
+          email: JSON.parse(localStorage.getItem('user') || '{}').email || '',
+          contact: JSON.parse(localStorage.getItem('user') || '{}').phone || ''
+        },
+        theme: {
+          color: '#9333ea'
+        },
+        modal: {
+          ondismiss: function() {
+            setPayingBookingId(null);
+            toast.info('Payment cancelled');
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+      
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to initiate payment');
+      setPayingBookingId(null);
+    }
+  };
+
   const calculateTotalAmount = () => {
     if (!selectedProgram) return 0;
     const basePrice = selectedProgram.price || 0;
@@ -150,7 +232,7 @@ export default function UserSessionsPage() {
     return basePrice + additionalCharge;
   };
 
-  const handleBookingSubmit = async (e) => {
+    const handleBookingSubmit = async (e) => {
     e.preventDefault();
 
     if (!selectedProgram || !selectedTrainer) {
@@ -177,12 +259,66 @@ export default function UserSessionsPage() {
         notes: bookingForm.notes
       };
 
-      await bookingAPI.create(payload);
+      const bookingResponse = await bookingAPI.create(payload);
+      const bookingId = bookingResponse.data.id;
 
-      toast.success('Session booked successfully! Proceed to payment.');
-      setShowBookingModal(false);
-      fetchData();
+      toast.success('Session booked successfully! Proceeding to payment...');
+      
+      // Create payment for the booking
+      const paymentResponse = await bookingAPI.createPayment(bookingId);
+      
+      // Check if Razorpay is loaded
+      if (!window.Razorpay) {
+        toast.error('Payment gateway not loaded. Please refresh the page.');
+        return;
+      }
+      
+      // Initialize Razorpay
+      const options = {
+        key: paymentResponse.data.razorpay_key_id,
+        amount: paymentResponse.data.amount,
+        currency: paymentResponse.data.currency,
+        name: 'FitSphere',
+        description: `Training Session: ${selectedProgram.title}`,
+        order_id: paymentResponse.data.razorpay_order_id,
+        handler: async function (paymentResult) {
+          try {
+            // Create FormData and append payment details
+            const verifyData = new FormData();
+            verifyData.append('razorpay_order_id', paymentResult.razorpay_order_id);
+            verifyData.append('razorpay_payment_id', paymentResult.razorpay_payment_id);
+            verifyData.append('razorpay_signature', paymentResult.razorpay_signature);
+
+            await bookingAPI.verifyPayment(bookingId, verifyData);
+            
+            toast.success('Payment successful! Session booked.');
+            setShowBookingModal(false);
+            fetchData(); // Refresh bookings list
+          } catch (error) {
+            console.error('Payment verification error:', error);
+            toast.error('Payment verification failed');
+          }
+        },
+        prefill: {
+          name: JSON.parse(localStorage.getItem('user') || '{}').name || '',
+          email: JSON.parse(localStorage.getItem('user') || '{}').email || '',
+          contact: JSON.parse(localStorage.getItem('user') || '{}').phone || ''
+        },
+        theme: {
+          color: '#9333ea'
+        },
+        modal: {
+          ondismiss: function() {
+            toast.info('Payment cancelled. Your booking is saved, you can pay later.');
+          }
+        }
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+      
     } catch (error) {
+      console.error('Booking error:', error);
       toast.error(error.response?.data?.detail || 'Failed to book session');
     }
   };
@@ -292,6 +428,19 @@ export default function UserSessionsPage() {
                     </div>
                     
                     <p className="text-sm font-semibold text-purple-600">₹{booking.amount}</p>
+
+                      {/* Pay Now Button for Pending Payments */}
+                    {booking.payment_status !== 'success' && booking.status !== 'cancelled' && (
+                      <Button
+                        onClick={() => handlePayForBooking(booking)}
+                        disabled={payingBookingId === booking.id}
+                        size="sm"
+                        className="w-full mt-2 bg-gradient-to-r from-purple-600 to-pink-600"
+                        data-testid="pay-now-btn"
+                      >
+                        {payingBookingId === booking.id ? 'Processing...' : 'Pay Now'}
+                      </Button>
+                    )}
                   </div>
                 </Card>
               ))}

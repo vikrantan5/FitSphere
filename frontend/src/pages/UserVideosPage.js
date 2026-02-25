@@ -189,16 +189,35 @@ export default function UserVideosPage() {
           <DialogHeader>
             <DialogTitle className="text-2xl">{selectedVideo?.title}</DialogTitle>
           </DialogHeader>
-          {selectedVideo && (
+                  {selectedVideo && (
             <div>
-              <div className="aspect-video bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 rounded-lg flex items-center justify-center mb-4">
-                {selectedVideo.video_url ? (
+              <div className="aspect-video bg-black rounded-lg mb-4">
+                {selectedVideo.embed_url ? (
+                  <iframe
+                    src={selectedVideo.embed_url}
+                    loading="lazy"
+                    style={{ border: 'none', width: '100%', height: '100%' }}
+                    allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+                    allowFullScreen
+                    className="rounded-lg"
+                    data-testid="video-player"
+                  />
+                ) : selectedVideo.video_url && selectedVideo.video_url.includes('.m3u8') ? (
+                  <div className="w-full h-full flex items-center justify-center text-white">
+                    <div className="text-center">
+                      <Play className="h-24 w-24 mx-auto mb-4" />
+                      <p>Video playback unavailable</p>
+                    </div>
+                  </div>
+                ) : selectedVideo.video_url ? (
                   <video controls className="w-full h-full rounded-lg" data-testid="video-player">
                     <source src={selectedVideo.video_url} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
                 ) : (
-                  <Play className="h-24 w-24 text-white" />
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 rounded-lg">
+                    <Play className="h-24 w-24 text-white" />
+                  </div>
                 )}
               </div>
               <div className="space-y-4">

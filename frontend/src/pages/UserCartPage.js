@@ -132,7 +132,7 @@ export default function UserCartPage() {
         shipping_address: customerInfo.address
       };
 
-      const response = await orderAPI.createOrder(orderData);
+     const response = await orderAPI.createRazorpay(orderData);
       
       // Check if Razorpay is loaded
       if (!window.Razorpay) {
