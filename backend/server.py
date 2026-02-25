@@ -231,35 +231,65 @@ async def get_public_videos(
     limit: int = 50
 ):
     """Get only free/public videos (no authentication required)"""
-    query = {"is_free": True}
-    if category:
-        query['category'] = category
-    if difficulty:
-        query['difficulty'] = difficulty
-    if search:
-        query['title'] = {"$regex": search, "$options": "i"}
-    
-    videos = await db.videos.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
-    
-    for video in videos:
-        for field in ['created_at', 'updated_at']:
-            if isinstance(video.get(field), str):
-                video[field] = datetime.fromisoformat(video[field])
-    
-    return videos
+    try:
+        query = {"is_free": True}
+        if category:
+            query['category'] = category
+        if difficulty:
+            query['difficulty'] = difficulty
+        if search:
+            query['title'] = {"$regex": search, "$options": "i"}
+        
+        videos = await db.videos.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
+        
+        # Transform each video to ensure all fields exist
+        for video in videos:
+            video = transform_video_response(video)
+            
+            for field in ['created_at', 'updated_at']:
+                if isinstance(video.get(field), str):
+                    video[field] = datetime.fromisoformat(video[field])
+        
+        return videos
+    except Exception as e:
+        logger.error(f"Error fetching public videos: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Failed to fetch public videos",
+                "error": str(e)
+            }
+        )
 
 @api_router.get("/videos/{video_id}", response_model=Video)
 async def get_video(video_id: str):
     """Get single video by ID"""
-    video = await db.videos.find_one({"id": video_id}, {"_id": 0})
-    if not video:
-        raise HTTPException(status_code=404, detail="Video not found")
-    
-    for field in ['created_at', 'updated_at']:
-        if isinstance(video.get(field), str):
-            video[field] = datetime.fromisoformat(video[field])
-    
-    return video
+    try:
+        video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+        if not video:
+            raise HTTPException(status_code=404, detail="Video not found")
+        
+        # Transform video response
+        video = transform_video_response(video)
+        
+        for field in ['created_at', 'updated_at']:
+            if isinstance(video.get(field), str):
+                video[field] = datetime.fromisoformat(video[field])
+        
+        return video
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching video {video_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Failed to fetch video",
+                "error": str(e)
+            }
+        )
 
 @api_router.put("/videos/{video_id}", response_model=Video)
 async def update_video(
@@ -536,23 +566,57 @@ async def verify_payment(
     razorpay_payment_id: str = Form(...),
     razorpay_signature: str = Form(...)
 ):
-    """Verify Razorpay payment"""
+    """Verify Razorpay payment with proper signature validation"""
     try:
-        # Verify signature
+        # Verify signature using HMAC SHA256
+        message = f"{razorpay_order_id}|{razorpay_payment_id}"
         generated_signature = hmac.new(
-            os.environ['RAZORPAY_KEY_SECRET'].encode(),
-            f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+            os.environ['RAZORPAY_KEY_SECRET'].encode('utf-8'),
+            message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
         
-        if generated_signature != razorpay_signature:
-            raise HTTPException(status_code=400, detail="Invalid payment signature")
+        logger.info(f"Payment verification - Order: {razorpay_order_id}, Payment: {razorpay_payment_id}")
+        logger.info(f"Generated signature: {generated_signature}")
+        logger.info(f"Received signature: {razorpay_signature}")
         
-        # Update order status
+        if generated_signature != razorpay_signature:
+            logger.error("Signature mismatch - payment verification failed")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "success": False,
+                    "message": "Invalid payment signature",
+                    "error_code": "SIGNATURE_MISMATCH"
+                }
+            )
+        
+        # Find order by razorpay_order_id
         order = await db.orders.find_one({"razorpay_order_id": razorpay_order_id}, {"_id": 0})
         if not order:
-            raise HTTPException(status_code=404, detail="Order not found")
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "success": False,
+                    "message": "Order not found",
+                    "error_code": "ORDER_NOT_FOUND"
+                }
+            )
         
+        # Check for duplicate payment
+        existing_payment = await db.payments.find_one(
+            {"razorpay_payment_id": razorpay_payment_id},
+            {"_id": 0}
+        )
+        if existing_payment:
+            logger.warning(f"Duplicate payment attempt detected: {razorpay_payment_id}")
+            return {
+                "success": True,
+                "message": "Payment already processed",
+                "order_id": order['id']
+            }
+        
+        # Update order status
         await db.orders.update_one(
             {"razorpay_order_id": razorpay_order_id},
             {
@@ -587,14 +651,121 @@ async def verify_payment(
                 {"$inc": {"stock": -item['quantity']}}
             )
         
-        return {"success": True, "message": "Payment verified successfully"}
+        logger.info(f"Payment verified successfully for order: {order['id']}")
+        
+        return {
+            "success": True,
+            "message": "Payment verified successfully",
+            "order_id": order['id']
+        }
     
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Payment verification error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Payment verification failed",
+                "error": str(e),
+                "error_code": "VERIFICATION_ERROR"
+            }
+        )
 
+@api_router.post("/webhooks/razorpay")
+async def razorpay_webhook(request: dict):
+    """
+    Razorpay webhook handler for payment events
+    Handles: payment.captured, payment.failed, refund.created, etc.
+    """
+    try:
+        event = request.get('event')
+        payload = request.get('payload', {})
+        
+        logger.info(f"Razorpay webhook received - Event: {event}")
+        
+        # Handle payment captured event
+        if event == 'payment.captured':
+            payment_entity = payload.get('payment', {}).get('entity', {})
+            razorpay_payment_id = payment_entity.get('id')
+            razorpay_order_id = payment_entity.get('order_id')
+            amount = payment_entity.get('amount', 0) / 100  # Convert from paise to rupees
+            
+            logger.info(f"Payment captured - Order: {razorpay_order_id}, Payment: {razorpay_payment_id}")
+            
+            # Find order and update status
+            order = await db.orders.find_one({"razorpay_order_id": razorpay_order_id}, {"_id": 0})
+            if order:
+                await db.orders.update_one(
+                    {"razorpay_order_id": razorpay_order_id},
+                    {
+                        "$set": {
+                            "payment_status": PaymentStatus.SUCCESS.value,
+                            "payment_id": razorpay_payment_id,
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                    }
+                )
+            
+            # Also check for booking
+            booking = await db.bookings.find_one({"razorpay_order_id": razorpay_order_id}, {"_id": 0})
+            if booking:
+                await db.bookings.update_one(
+                    {"razorpay_order_id": razorpay_order_id},
+                    {
+                        "$set": {
+                            "payment_status": PaymentStatus.SUCCESS.value,
+                            "payment_id": razorpay_payment_id,
+                            "status": BookingStatus.CONFIRMED.value,
+                            "updated_at": datetime.utcnow().isoformat()
+                        }
+                    }
+                )
+        
+        # Handle payment failed event
+        elif event == 'payment.failed':
+            payment_entity = payload.get('payment', {}).get('entity', {})
+            razorpay_order_id = payment_entity.get('order_id')
+            
+            logger.warning(f"Payment failed - Order: {razorpay_order_id}")
+            
+            # Update order status
+            await db.orders.update_one(
+                {"razorpay_order_id": razorpay_order_id},
+                {
+                    "$set": {
+                        "payment_status": PaymentStatus.FAILED.value,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                }
+            )
+            
+            # Update booking status
+            await db.bookings.update_one(
+                {"razorpay_order_id": razorpay_order_id},
+                {
+                    "$set": {
+                        "payment_status": PaymentStatus.FAILED.value,
+                        "updated_at": datetime.utcnow().isoformat()
+                    }
+                }
+            )
+            
+            # Create notification
+            notification = Notification(
+                notification_type=NotificationType.FAILED_PAYMENT,
+                message=f"Payment failed for order {razorpay_order_id}"
+            )
+            notif_dict = notification.model_dump()
+            notif_dict['created_at'] = notif_dict['created_at'].isoformat()
+            await db.notifications.insert_one(notif_dict)
+        
+        return {"status": "success", "message": "Webhook processed"}
+    
+    except Exception as e:
+        logger.error(f"Webhook processing error: {str(e)}")
+        return {"status": "error", "message": str(e)}
 @api_router.get("/orders", response_model=List[Order])
 async def get_orders(
     status: Optional[str] = None,
@@ -1558,23 +1729,68 @@ async def verify_booking_payment(
     razorpay_signature: str = Form(...),
     user: dict = Depends(get_current_user)
 ):
-    """Verify Razorpay payment for booking"""
+    """Verify Razorpay payment for booking with proper signature validation"""
     try:
-        # Verify signature
+        # Verify signature using HMAC SHA256
+        message = f"{razorpay_order_id}|{razorpay_payment_id}"
         generated_signature = hmac.new(
-            os.environ['RAZORPAY_KEY_SECRET'].encode(),
-            f"{razorpay_order_id}|{razorpay_payment_id}".encode(),
+            os.environ['RAZORPAY_KEY_SECRET'].encode('utf-8'),
+            message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
         
-        if generated_signature != razorpay_signature:
-            raise HTTPException(status_code=400, detail="Invalid payment signature")
+        logger.info(f"Booking payment verification - Booking: {booking_id}, Payment: {razorpay_payment_id}")
+        logger.info(f"Generated signature: {generated_signature}")
+        logger.info(f"Received signature: {razorpay_signature}")
         
-        # Update booking
+        if generated_signature != razorpay_signature:
+            logger.error("Signature mismatch - booking payment verification failed")
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "success": False,
+                    "message": "Invalid payment signature",
+                    "error_code": "SIGNATURE_MISMATCH"
+                }
+            )
+        
+        # Find booking
         booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
         if not booking:
-            raise HTTPException(status_code=404, detail="Booking not found")
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "success": False,
+                    "message": "Booking not found",
+                    "error_code": "BOOKING_NOT_FOUND"
+                }
+            )
         
+        # Check authorization
+        if booking['user_id'] != user['user_id']:
+            raise HTTPException(
+                status_code=403,
+                detail={
+                    "success": False,
+                    "message": "Not authorized to verify this payment",
+                    "error_code": "UNAUTHORIZED"
+                }
+            )
+        
+        # Check for duplicate payment
+        existing_payment = await db.payments.find_one(
+            {"razorpay_payment_id": razorpay_payment_id},
+            {"_id": 0}
+        )
+        if existing_payment:
+            logger.warning(f"Duplicate booking payment attempt detected: {razorpay_payment_id}")
+            return {
+                "success": True,
+                "message": "Payment already processed",
+                "booking_id": booking_id
+            }
+        
+        # Update booking
         await db.bookings.update_one(
             {"id": booking_id},
             {
@@ -1614,13 +1830,27 @@ async def verify_booking_payment(
             {"$inc": {"enrolled_count": 1}}
         )
         
-        return {"success": True, "message": "Payment verified and booking confirmed"}
+        logger.info(f"Booking payment verified successfully: {booking_id}")
+        
+        return {
+            "success": True,
+            "message": "Payment verified and booking confirmed",
+            "booking_id": booking_id
+        }
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Payment verification error: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Booking payment verification error: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Payment verification failed",
+                "error": str(e),
+                "error_code": "VERIFICATION_ERROR"
+            }
+        )
 
 @api_router.get("/bookings/export/csv")
 async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
@@ -1750,6 +1980,86 @@ async def get_my_orders(
                 order[field] = datetime.fromisoformat(order[field])
     
     return orders
+
+
+# ==================== USER PURCHASE ACCESS ENDPOINTS ====================
+
+@api_router.get("/user/purchases")
+async def get_user_purchases(user: dict = Depends(get_current_user)):
+    """Get all purchases for the current user"""
+    try:
+        purchases = await db.user_purchases.find(
+            {"user_id": user['user_id']},
+            {"_id": 0}
+        ).to_list(1000)
+        
+        for purchase in purchases:
+            if isinstance(purchase.get('created_at'), str):
+                purchase['created_at'] = datetime.fromisoformat(purchase['created_at'])
+        
+        return {
+            "success": True,
+            "purchases": purchases
+        }
+    except Exception as e:
+        logger.error(f"Error fetching user purchases: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Failed to fetch purchases",
+                "error": str(e)
+            }
+        )
+
+@api_router.get("/user/has-access/{item_type}/{item_id}")
+async def check_user_access(
+    item_type: str,
+    item_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """
+    Check if user has access to a specific item (video, program, product)
+    item_type: 'video', 'program', 'product'
+    """
+    try:
+        # Check if item is free
+        if item_type == "video":
+            item = await db.videos.find_one({"id": item_id}, {"_id": 0, "is_free": 1})
+            if item and item.get("is_free", False):
+                return {"has_access": True, "reason": "free_content"}
+        
+        elif item_type == "program":
+            item = await db.programs.find_one({"id": item_id}, {"_id": 0, "price": 1})
+            if item and item.get("price", 0) == 0:
+                return {"has_access": True, "reason": "free_content"}
+        
+        # Check if user has purchased this item
+        purchase = await db.user_purchases.find_one({
+            "user_id": user['user_id'],
+            "purchase_type": item_type,
+            "item_id": item_id
+        }, {"_id": 0})
+        
+        if purchase:
+            return {
+                "has_access": True,
+                "reason": "purchased",
+                "purchase_date": purchase.get('created_at')
+            }
+        
+        return {"has_access": False, "reason": "not_purchased"}
+    
+    except Exception as e:
+        logger.error(f"Error checking user access: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "success": False,
+                "message": "Failed to check access",
+                "error": str(e)
+            }
+        )
 
 # ==================== BASIC ENDPOINTS ====================
 

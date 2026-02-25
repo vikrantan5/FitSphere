@@ -120,6 +120,7 @@ class VideoCreate(BaseModel):
     is_free: bool = True
 
 # UPDATED: Video model with Bunny Stream specific fields
+# Made embed_url and video_id optional for backward compatibility
 class Video(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -128,9 +129,9 @@ class Video(BaseModel):
     difficulty: VideoDifficulty
     duration: int  # in seconds
     description: str
-    video_url: str  # Playback URL for HLS streaming (from Bunny Stream)
-    embed_url: str  # Embed URL for iframe (from Bunny Stream)
-    video_id: str   # Bunny Stream video GUID for management
+    video_url: str  # Playback URL for HLS streaming (from Bunny Stream) or direct video URL
+    embed_url: Optional[str] = None  # Embed URL for iframe (from Bunny Stream) - optional for backward compatibility
+    video_id: Optional[str] = None   # Bunny Stream video GUID for management - optional for backward compatibility
     thumbnail_url: Optional[str] = None
     is_public: bool = True
     is_free: bool = True  # Free or Premium video
@@ -468,3 +469,17 @@ class BookingUpdate(BaseModel):
     notes: Optional[str] = None
     booking_date: Optional[str] = None
     time_slot: Optional[str] = None
+
+
+
+    # User Purchase Models (for tracking access to paid content)
+class UserPurchase(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    purchase_type: str  # "video", "program", "product"
+    item_id: str  # ID of the purchased video/program/product
+    payment_id: str
+    razorpay_payment_id: str
+    amount: float
+    created_at: datetime = Field(default_factory=datetime.utcnow)
