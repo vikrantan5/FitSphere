@@ -21,7 +21,8 @@ from auth import hash_password, verify_password, create_access_token, get_curren
 from bunny_cdn import (
     upload_video_to_bunny_stream,
     delete_bunny_stream_video,
-    upload_to_bunny_storage
+    upload_to_bunny_storage,
+    delete_from_bunny_cdn
 )
 
 ROOT_DIR = Path(__file__).parent

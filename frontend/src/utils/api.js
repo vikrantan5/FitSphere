@@ -59,6 +59,17 @@ export const productAPI = {
   delete: (id) => api.delete(`/products/${id}`),
 };
 
+
+// Cart APIs
+export const cartAPI = {
+  get: () => api.get('/cart'),
+  add: (data) => api.post('/cart/add', data),
+  update: (productId, data) => api.put(`/cart/update/${productId}`, data),
+  remove: (productId) => api.delete(`/cart/remove/${productId}`),
+  clear: () => api.delete('/cart/clear'),
+};
+
+
 // Order APIs
 export const orderAPI = {
   createRazorpay: (data) => api.post('/orders/create-razorpay-order', data),

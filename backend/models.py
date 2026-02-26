@@ -483,3 +483,35 @@ class UserPurchase(BaseModel):
     razorpay_payment_id: str
     amount: float
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+
+    # ==================== CART MODELS ====================
+
+class CartItem(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    product_id: str
+    product_name: str
+    price: float
+    quantity: int = 1
+    image_url: Optional[str] = None
+    discount: Optional[float] = 0.0
+
+class CartCreate(BaseModel):
+    user_id: str
+    items: List[CartItem] = []
+
+class Cart(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    user_id: str
+    items: List[CartItem] = []
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CartItemAdd(BaseModel):
+    product_id: str
+    quantity: int = 1
+
+class CartItemUpdate(BaseModel):
+    quantity: int

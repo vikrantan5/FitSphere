@@ -122,3 +122,29 @@ async def upload_to_bunny_storage(file: UploadFile, destination_path: str):
         "cdn_url": f"{BUNNY_PULL_ZONE_URL}/{destination_path}",
         "success": True
     }
+
+
+
+
+    # =====================================================
+# 5️⃣ DELETE FILE FROM BUNNY STORAGE
+# =====================================================
+async def delete_from_bunny_cdn(file_path: str):
+    """Delete a file from Bunny Storage"""
+    if not BUNNY_STORAGE_PASSWORD:
+        raise HTTPException(500, "Storage password missing")
+
+    delete_url = f"https://{BUNNY_STORAGE_REGION}/{BUNNY_STORAGE_ZONE}/{file_path}"
+
+    headers = {
+        "AccessKey": BUNNY_STORAGE_PASSWORD
+    }
+
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        res = await client.delete(delete_url, headers=headers)
+
+    if res.status_code not in [200, 204]:
+        logger.warning(f"Failed to delete file from Bunny CDN: {file_path}, Status: {res.status_code}")
+        return False
+
+    return True

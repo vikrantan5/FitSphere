@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Dumbbell, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { orderAPI } from '../utils/api';
+import { orderAPI, cartAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserCartPage() {
@@ -29,19 +29,31 @@ export default function UserCartPage() {
     document.body.appendChild(script);
     
     return () => {
-      document.body.removeChild(script);
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
     };
   }, []);
 
-  const loadCart = () => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (error) {
-        console.error('Error parsing cart:', error);
-        setCart([]);
+  const loadCart = async () => {
+    try {
+      setLoading(true);
+      const response = await cartAPI.get();
+      setCart(response.data.items || []);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      // Fallback to localStorage if API fails
+      const savedCart = localStorage.getItem('cart');
+      if (savedCart) {
+        try {
+          setCart(JSON.parse(savedCart));
+        } catch (e) {
+          console.error('Error parsing cart:', e);
+          setCart([]);
+        }
       }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -61,24 +73,32 @@ export default function UserCartPage() {
     }
   };
 
-  const updateQuantity = (itemId, change) => {
-    const newCart = cart.map(item => {
-      if (item.id === itemId) {
-        const newQuantity = Math.max(1, (item.quantity || 1) + change);
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    });
-    setCart(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
+  const updateQuantity = async (productId, change) => {
+    const item = cart.find(i => i.product_id === productId);
+    if (!item) return;
+    
+    const newQuantity = Math.max(1, (item.quantity || 1) + change);
+    
+    try {
+      await cartAPI.update(productId, { quantity: newQuantity });
+      await loadCart();
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      toast.error('Failed to update quantity');
+    }
   };
 
-  const removeItem = (itemId) => {
-    const newCart = cart.filter(item => item.id !== itemId);
-    setCart(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
-    toast.success('Item removed from cart');
+  const removeItem = async (productId) => {
+    try {
+      await cartAPI.remove(productId);
+      await loadCart();
+      toast.success('Item removed from cart');
+    } catch (error) {
+      console.error('Error removing item:', error);
+      toast.error('Failed to remove item');
+    }
   };
+
 
   const calculateTotal = () => {
     return cart.reduce((total, item) => {
@@ -94,14 +114,14 @@ export default function UserCartPage() {
     }
 
     // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[^s@]+@[^s@]+.[^s@]+$/;
     if (!emailRegex.test(customerInfo.email)) {
       toast.error('Please enter a valid email address');
       return;
     }
 
     // Basic phone validation
-    const phoneRegex = /^[0-9+\-\s]{10,15}$/;
+    const phoneRegex = /^[0-9+-s]{10,15}$/;
     if (!phoneRegex.test(customerInfo.phone)) {
       toast.error('Please enter a valid phone number');
       return;
@@ -120,8 +140,8 @@ export default function UserCartPage() {
       const orderData = {
         user_id: user.id || 'guest',
         items: cart.map(item => ({
-          product_id: item.id,
-          product_name: item.name,
+         product_id: item.product_id,
+          product_name: item.product_name,
           quantity: item.quantity || 1,
           price: item.price * (1 - (item.discount || 0) / 100)
         })),
@@ -159,7 +179,12 @@ export default function UserCartPage() {
 
             await orderAPI.verifyPayment(verifyData);
             
-            // Clear cart
+              // Clear cart from database and localStorage
+            try {
+              await cartAPI.clear();
+            } catch (e) {
+              console.error('Error clearing cart from database:', e);
+            }
             localStorage.removeItem('cart');
             setCart([]);
             
@@ -232,21 +257,29 @@ export default function UserCartPage() {
         ) : (
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
-            <div className="lg:col-span-2 space-y-4" data-testid="cart-items">
+             <div className="lg:col-span-2 space-y-4" data-testid="cart-items">
               {cart.map((item) => (
-                <Card key={item.id} className="p-6" data-testid="cart-item">
+                <Card key={item.product_id} className="p-6" data-testid="cart-item">
                   <div className="flex items-start gap-4">
-                    <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Dumbbell className="h-10 w-10 text-white" />
-                    </div>
+                    {item.image_url ? (
+                      <img
+                        src={item.image_url}
+                        alt={item.product_name}
+                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <Dumbbell className="h-10 w-10 text-white" />
+                      </div>
+                    )}
                     <div className="flex-1">
                       <div className="flex justify-between">
                         <div>
-                          <h3 className="font-bold text-lg">{item.name}</h3>
-                          <p className="text-gray-600 text-sm">{item.category}</p>
+                          <h3 className="font-bold text-lg">{item.product_name}</h3>
+                          <p className="text-gray-600 text-sm">Qty: {item.quantity || 1}</p>
                         </div>
                         <Button
-                          onClick={() => removeItem(item.id)}
+                          onClick={() => removeItem(item.product_id)}
                           variant="ghost"
                           size="sm"
                           className="text-red-500 hover:text-red-700"
@@ -258,7 +291,7 @@ export default function UserCartPage() {
                       <div className="flex items-center justify-between mt-4">
                         <div className="flex items-center space-x-2">
                           <Button
-                            onClick={() => updateQuantity(item.id, -1)}
+                            onClick={() => updateQuantity(item.product_id, -1)}
                             variant="outline"
                             size="sm"
                             data-testid="decrease-qty-btn"
@@ -267,7 +300,7 @@ export default function UserCartPage() {
                           </Button>
                           <span className="font-semibold text-lg" data-testid="item-quantity">{item.quantity || 1}</span>
                           <Button
-                            onClick={() => updateQuantity(item.id, 1)}
+                            onClick={() => updateQuantity(item.product_id, 1)}
                             variant="outline"
                             size="sm"
                             data-testid="increase-qty-btn"

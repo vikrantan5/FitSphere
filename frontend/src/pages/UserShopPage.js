@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dumbbell, ShoppingCart, Search, Package } from 'lucide-react';
-import { productAPI } from '../utils/api';
+import { productAPI, cartAPI } from '../utils/api';
 import { toast } from 'sonner';
 
 export default function UserShopPage() {
@@ -15,21 +15,24 @@ export default function UserShopPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
-  const [cart, setCart] = useState([]);
+  const [cartCount, setCartCount] = useState(0);
 
   useEffect(() => {
     fetchProducts();
-    loadCart();
+    loadCartCount();
   }, []);
 
   useEffect(() => {
     filterProducts();
   }, [products, searchQuery, categoryFilter]);
 
-  const loadCart = () => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
+  const loadCartCount = async () => {
+    try {
+      const response = await cartAPI.get();
+      const items = response.data.items || [];
+      setCartCount(items.length);
+    } catch (error) {
+      console.error('Error loading cart:', error);
     }
   };
 
@@ -61,22 +64,19 @@ export default function UserShopPage() {
     setFilteredProducts(filtered);
   };
 
-  const addToCart = (product) => {
-    const existingItem = cart.find(item => item.id === product.id);
-    let newCart;
-
-    if (existingItem) {
-      newCart = cart.map(item =>
-        item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-      );
-    } else {
-      newCart = [...cart, { ...product, quantity: 1 }];
+  const addToCart = async (product) => {
+    try {
+      await cartAPI.add({
+        product_id: product.id,
+        quantity: 1
+      });
+      toast.success('Added to cart!');
+      await loadCartCount();
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add to cart');
     }
-
-    setCart(newCart);
-    localStorage.setItem('cart', JSON.stringify(newCart));
-    toast.success('Added to cart!');
-  };
+  }; // <-- Only one closing brace here
 
   const categories = ['all', 'Equipment', 'Apparel', 'Supplements', 'Accessories'];
 
@@ -96,7 +96,7 @@ export default function UserShopPage() {
               <Button onClick={() => navigate('/user/dashboard')} variant="outline">Dashboard</Button>
               <Button onClick={() => navigate('/user/cart')} className="bg-gradient-to-r from-purple-600 to-pink-600" data-testid="cart-button">
                 <ShoppingCart className="h-4 w-4 mr-2" />
-                Cart ({cart.length})
+                 Cart ({cartCount})
               </Button>
             </div>
           </div>
