@@ -155,7 +155,10 @@ export default function UserShopPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="products-grid">
             {filteredProducts.map((product) => (
               <Card key={product.id} className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105" data-testid="product-card">
-                <div className="h-56 bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative overflow-hidden">
+                <div 
+                  className="h-56 bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative overflow-hidden cursor-pointer"
+                  onClick={() => navigate(`/product/${product.id}`)}
+                >
                   {product.image_urls && product.image_urls.length > 0 ? (
                     <img 
                       src={product.image_urls[0]} 
@@ -175,7 +178,12 @@ export default function UserShopPage() {
                   <div className="text-sm text-teal-600 font-semibold mb-2 uppercase">
                     {product.category}
                   </div>
-                  <h3 className="font-bold text-xl mb-2">{product.name}</h3>
+                  <h3 
+                    className="font-bold text-xl mb-2 cursor-pointer hover:text-teal-600 transition-colors"
+                    onClick={() => navigate(`/product/${product.id}`)}
+                  >
+                    {product.name}
+                  </h3>
                   <p className="text-gray-600 text-sm mb-4 line-clamp-2">
                     {product.description}
                   </p>
@@ -195,14 +203,28 @@ export default function UserShopPage() {
                     <span>{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</span>
                   </div>
 
+                   <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => navigate(`/product/${product.id}`)}
+                      variant="outline"
+                      className="w-full"
+                      data-testid="view-details-btn"
+                    >
+                      View Details
+                    </Button>
+
                   <Button
-                    onClick={() => addToCart(product)}
+                   onClick={(e) => {
+                        e.stopPropagation();
+                        addToCart(product);
+                      }}
                     className="w-full bg-gradient-to-r from-teal-600 to-cyan-600"
                     disabled={product.stock === 0}
                     data-testid="add-to-cart-btn"
                   >
                     {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
                   </Button>
+                  </div>
                 </div>
               </Card>
             ))}

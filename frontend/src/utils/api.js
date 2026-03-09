@@ -81,6 +81,9 @@ export const orderAPI = {
   updateStatus: (id, status) => api.put(`/orders/${id}/status`, null, {
     params: { order_status: status },
   }),
+   updateDeliveryTime: (id, formData) => api.put(`/orders/${id}/delivery-time`, formData, {
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  }),
   exportCSV: () => api.get('/orders/export/csv', { responseType: 'blob' }),
 };
 

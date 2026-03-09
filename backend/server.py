@@ -910,7 +910,7 @@ async def clear_cart(user: dict = Depends(get_current_user)):
 async def create_razorpay_order(order_data: OrderCreate, user: dict = Depends(get_current_user)):
     """Create Razorpay order"""
     try:
-          if not order_data.items:
+        if not order_data.items:
             raise HTTPException(status_code=400, detail="Order must contain at least one item")
 
         validated_items = []
@@ -953,12 +953,14 @@ async def create_razorpay_order(order_data: OrderCreate, user: dict = Depends(ge
             product_ids.append(product['id'])
 
         total_amount = round(total_amount, 2)
+        
         # Create order in Razorpay (amount in paise)
         razorpay_order = razorpay_client.order.create({
             "amount": int(total_amount * 100),  # Convert to paise
             "currency": "INR",
             "payment_capture": 1
         })
+        
         now = datetime.utcnow()
         estimated_delivery_date, estimated_delivery_time = get_delivery_estimate(now)
         
@@ -1006,6 +1008,7 @@ async def create_razorpay_order(order_data: OrderCreate, user: dict = Depends(ge
             "estimated_delivery_date": estimated_delivery_date,
             "estimated_delivery_time": estimated_delivery_time
         }
+        
     except HTTPException:
         raise
     except Exception as e:
@@ -1264,7 +1267,7 @@ async def get_order(order_id: str, admin: dict = Depends(get_current_admin)):
 @api_router.put("/orders/{order_id}/status")
 async def update_order_status(
     order_id: str,
-    order_status: str,
+     order_status: str = Query(...),
     admin: dict = Depends(get_current_admin)
 ):
     """Update order status"""

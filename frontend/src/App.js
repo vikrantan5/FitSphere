@@ -23,6 +23,7 @@ import UserShopPage from './pages/UserShopPage';
 import UserCartPage from './pages/UserCartPage';
 import UserChatPage from './pages/UserChatPage';
 import UserTestimonialsPage from './pages/UserTestimonialsPage';
+import ProductDetailPage from './pages/ProductDetailPage';
 
 // Protected Route Component for Admin
 function AdminRoute({ children }) {
@@ -245,6 +246,14 @@ function App() {
           element={
             <UserRoute>
               <UserShopPage />
+            </UserRoute>
+          }
+        />
+         <Route
+          path="/product/:productId"
+          element={
+            <UserRoute>
+              <ProductDetailPage />
             </UserRoute>
           }
         />
