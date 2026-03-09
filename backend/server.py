@@ -14,6 +14,7 @@ import hmac
 import io
 import csv
 import socketio
+import uvicorn
 
 # Import local modules
 from models import *
@@ -28,15 +29,27 @@ from bunny_cdn import (
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+try:
+    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'fitsphere')]
+    logger.info("MongoDB client initialized")
+except Exception as e:
+    logger.error(f"Failed to initialize MongoDB: {e}")
+    raise
 
 # Razorpay client
 razorpay_client = razorpay.Client(auth=(
-    os.environ['RAZORPAY_KEY_ID'],
-    os.environ['RAZORPAY_KEY_SECRET']
+    os.environ.get('RAZORPAY_KEY_ID', ''),
+    os.environ.get('RAZORPAY_KEY_SECRET', '')
 ))
 
 # Create the main app
@@ -50,20 +63,11 @@ sio = socketio.AsyncServer(
     engineio_logger=True
 )
 
-# Wrap FastAPI app with Socket.IO
-socket_app = socketio.ASGIApp(sio, app)
-
 # Create API router
 api_router = APIRouter(prefix="/api")
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-
+# Store active connections for Socket.IO
+active_connections = {}
 
 # ==================== VIDEO URL NORMALIZATION HELPERS ====================
 
@@ -137,6 +141,62 @@ def transform_video_response(video: dict) -> dict:
             video["video_id"] = normalized["video_id"]
     
     return video
+
+# ==================== SOCKET.IO EVENT HANDLERS ====================
+
+@sio.event
+async def connect(sid, environ):
+    """Handle client connection"""
+    logger.info(f"Client connected: {sid}")
+    return True
+
+@sio.event
+async def disconnect(sid):
+    """Handle client disconnection"""
+    if sid in active_connections:
+        del active_connections[sid]
+    logger.info(f"Client disconnected: {sid}")
+
+@sio.event
+async def join_room(sid, data):
+    """User joins their personal room"""
+    user_id = data.get('user_id')
+    if user_id:
+        active_connections[sid] = user_id
+        await sio.enter_room(sid, f"user_{user_id}")
+        logger.info(f"User {user_id} joined room")
+
+@sio.event
+async def send_message(sid, data):
+    """Handle chat message"""
+    try:
+        # Save message to database
+        message = ChatMessage(
+            sender_id=data['sender_id'],
+            sender_name=data['sender_name'],
+            sender_role=UserRole(data['sender_role']),
+            receiver_id=data.get('receiver_id'),
+            message=data['message']
+        )
+        
+        message_dict = message.model_dump()
+        message_dict['created_at'] = message_dict['created_at'].isoformat()
+        
+        await db.chat_messages.insert_one(message_dict)
+        
+        # Emit to receiver
+        if data.get('receiver_id'):
+            await sio.emit('new_message', message_dict, room=f"user_{data['receiver_id']}")
+        else:
+            # Broadcast to all admins
+            await sio.emit('new_message', message_dict, room='admin_room')
+        
+        # Confirm to sender
+        await sio.emit('message_sent', {'success': True, 'message_id': message.id}, room=sid)
+        
+    except Exception as e:
+        logger.error(f"Error sending message: {str(e)}")
+        await sio.emit('error', {'message': str(e)}, room=sid)
 
 # ==================== AUTHENTICATION ENDPOINTS ====================
 
@@ -629,7 +689,7 @@ async def create_razorpay_order(order_data: OrderCreate):
             "razorpay_order_id": razorpay_order['id'],
             "amount": razorpay_order['amount'],
             "currency": razorpay_order['currency'],
-            "razorpay_key_id": os.environ['RAZORPAY_KEY_ID']
+            "razorpay_key_id": os.environ.get('RAZORPAY_KEY_ID', '')
         }
     
     except Exception as e:
@@ -647,7 +707,7 @@ async def verify_payment(
         # Verify signature using HMAC SHA256
         message = f"{razorpay_order_id}|{razorpay_payment_id}"
         generated_signature = hmac.new(
-            os.environ['RAZORPAY_KEY_SECRET'].encode('utf-8'),
+            os.environ.get('RAZORPAY_KEY_SECRET', '').encode('utf-8'),
             message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
@@ -842,6 +902,7 @@ async def razorpay_webhook(request: dict):
     except Exception as e:
         logger.error(f"Webhook processing error: {str(e)}")
         return {"status": "error", "message": str(e)}
+
 @api_router.get("/orders", response_model=List[Order])
 async def get_orders(
     status: Optional[str] = None,
@@ -1093,65 +1154,6 @@ async def mark_notification_read(
     
     return {"message": "Notification marked as read"}
 
-# ==================== SOCKET.IO EVENT HANDLERS ====================
-
-# Store active connections
-active_connections = {}
-
-@sio.event
-async def connect(sid, environ):
-    """Handle client connection"""
-    logger.info(f"Client connected: {sid}")
-    return True
-
-@sio.event
-async def disconnect(sid):
-    """Handle client disconnection"""
-    if sid in active_connections:
-        del active_connections[sid]
-    logger.info(f"Client disconnected: {sid}")
-
-@sio.event
-async def join_room(sid, data):
-    """User joins their personal room"""
-    user_id = data.get('user_id')
-    if user_id:
-        active_connections[sid] = user_id
-        await sio.enter_room(sid, f"user_{user_id}")
-        logger.info(f"User {user_id} joined room")
-
-@sio.event
-async def send_message(sid, data):
-    """Handle chat message"""
-    try:
-        # Save message to database
-        message = ChatMessage(
-            sender_id=data['sender_id'],
-            sender_name=data['sender_name'],
-            sender_role=UserRole(data['sender_role']),
-            receiver_id=data.get('receiver_id'),
-            message=data['message']
-        )
-        
-        message_dict = message.model_dump()
-        message_dict['created_at'] = message_dict['created_at'].isoformat()
-        
-        await db.chat_messages.insert_one(message_dict)
-        
-        # Emit to receiver
-        if data.get('receiver_id'):
-            await sio.emit('new_message', message_dict, room=f"user_{data['receiver_id']}")
-        else:
-            # Broadcast to all admins
-            await sio.emit('new_message', message_dict, room='admin_room')
-        
-        # Confirm to sender
-        await sio.emit('message_sent', {'success': True, 'message_id': message.id}, room=sid)
-        
-    except Exception as e:
-        logger.error(f"Error sending message: {str(e)}")
-        await sio.emit('error', {'message': str(e)}, room=sid)
-
 # ==================== CHAT ENDPOINTS ====================
 
 @api_router.get("/chat/messages", response_model=List[ChatMessage])
@@ -1242,7 +1244,7 @@ async def create_testimonial(
     
     await db.testimonials.insert_one(testimonial_dict)
     
-    # Notify admin
+    # Notify admin via Socket.IO
     await sio.emit('new_testimonial', testimonial_dict, room='admin_room')
     
     return testimonial
@@ -1790,7 +1792,7 @@ async def create_booking_payment(booking_id: str, user: dict = Depends(get_curre
             "razorpay_order_id": razorpay_order['id'],
             "amount": razorpay_order['amount'],
             "currency": razorpay_order['currency'],
-            "razorpay_key_id": os.environ['RAZORPAY_KEY_ID']
+            "razorpay_key_id": os.environ.get('RAZORPAY_KEY_ID', '')
         }
     
     except Exception as e:
@@ -1810,7 +1812,7 @@ async def verify_booking_payment(
         # Verify signature using HMAC SHA256
         message = f"{razorpay_order_id}|{razorpay_payment_id}"
         generated_signature = hmac.new(
-            os.environ['RAZORPAY_KEY_SECRET'].encode('utf-8'),
+            os.environ.get('RAZORPAY_KEY_SECRET', '').encode('utf-8'),
             message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()
@@ -1927,6 +1929,7 @@ async def verify_booking_payment(
                 "error_code": "VERIFICATION_ERROR"
             }
         )
+
 @api_router.get("/bookings/export/csv")
 async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
     """Export bookings to CSV"""
@@ -1937,105 +1940,6 @@ async def export_bookings_csv(admin: dict = Depends(get_current_admin)):
     writer = csv.writer(output)
     
     # Write headers
-    writer.writerow([
-        "Booking ID", "User Name", "Email", "Phone",
-        "Program", "Trainer", "Date", "Time Slot",
-        "Status", "Payment Status", "Amount", "Created At"
-    ])
-    
-    # Write data
-    for booking in bookings:
-        writer.writerow([
-            booking['id'],
-            booking['user_name'],
-            booking['user_email'],
-            booking.get('user_phone', ''),
-            booking['program_title'],
-            booking['trainer_name'],
-            booking['booking_date'],
-            booking['time_slot'],
-            booking['status'],
-            booking['payment_status'],
-            booking['amount'],
-            booking['created_at']
-        ])
-    
-    output.seek(0)
-    
-    return StreamingResponse(
-        iter([output.getvalue()]),
-        media_type="text/csv",
-        headers={"Content-Disposition": "attachment; filename=bookings.csv"}
-    )
-
-# ==================== GYM SETTINGS ENDPOINTS ====================
-
-@api_router.get("/gym-settings")
-async def get_gym_settings():
-    """Get gym settings (public endpoint)"""
-    settings = await db.gym_settings.find_one({}, {"_id": 0})
-    if not settings:
-        return None
-    
-    # Convert datetime fields if needed
-    if settings.get('created_at') and isinstance(settings['created_at'], str):
-        settings['created_at'] = datetime.fromisoformat(settings['created_at'])
-    if settings.get('updated_at') and isinstance(settings['updated_at'], str):
-        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
-    
-    return settings
-
-@api_router.post("/gym-settings")
-async def save_gym_settings(settings_data: GymSettingsCreate, admin: dict = Depends(get_current_admin)):
-    """Save or update gym settings (admin only)"""
-    # Validate location
-    if not settings_data.gym_location.address or settings_data.gym_location.latitude == 0:
-        raise HTTPException(status_code=400, detail="Valid gym location is required")
-    
-    # Check if settings exist
-    existing = await db.gym_settings.find_one({}, {"_id": 0})
-    
-    gym_location_dict = {
-        "address": settings_data.gym_location.address,
-        "latitude": settings_data.gym_location.latitude,
-        "longitude": settings_data.gym_location.longitude
-    }
-    
-    if existing:
-        # Update existing settings
-        update_data = {
-            "gym_name": settings_data.gym_name,
-            "gym_location": gym_location_dict,
-            "contact_phone": settings_data.contact_phone,
-            "contact_email": settings_data.contact_email,
-            "operating_hours": settings_data.operating_hours,
-            "updated_at": datetime.utcnow().isoformat()
-        }
-        
-        await db.gym_settings.update_one(
-            {"id": existing['id']},
-            {"$set": update_data}
-        )
-        
-        return {"message": "Gym settings updated successfully"}
-    else:
-        # Create new settings
-        new_settings = GymSettings(
-            gym_name=settings_data.gym_name,
-            gym_location=gym_location_dict,
-            contact_phone=settings_data.contact_phone,
-            contact_email=settings_data.contact_email,
-            operating_hours=settings_data.operating_hours
-        )
-        
-        settings_dict = new_settings.model_dump()
-        settings_dict['created_at'] = settings_dict['created_at'].isoformat()
-        settings_dict['updated_at'] = settings_dict['updated_at'].isoformat()
-        
-        await db.gym_settings.insert_one(settings_dict)
-        
-        return {"message": "Gym settings created successfully"}
-
     writer.writerow([
         "Booking ID", "User Name", "Email", "Phone",
         "Program", "Trainer", "Date", "Time Slot",
@@ -2085,7 +1989,6 @@ async def get_my_orders(
                 order[field] = datetime.fromisoformat(order[field])
     
     return orders
-
 
 # ==================== USER PURCHASE ACCESS ENDPOINTS ====================
 
@@ -2166,6 +2069,74 @@ async def check_user_access(
             }
         )
 
+# ==================== GYM SETTINGS ENDPOINTS ====================
+
+@api_router.get("/gym-settings")
+async def get_gym_settings():
+    """Get gym settings (public endpoint)"""
+    settings = await db.gym_settings.find_one({}, {"_id": 0})
+    if not settings:
+        return None
+    
+    # Convert datetime fields if needed
+    if settings.get('created_at') and isinstance(settings['created_at'], str):
+        settings['created_at'] = datetime.fromisoformat(settings['created_at'])
+    if settings.get('updated_at') and isinstance(settings['updated_at'], str):
+        settings['updated_at'] = datetime.fromisoformat(settings['updated_at'])
+    
+    return settings
+
+@api_router.post("/gym-settings")
+async def save_gym_settings(settings_data: GymSettingsCreate, admin: dict = Depends(get_current_admin)):
+    """Save or update gym settings (admin only)"""
+    # Validate location
+    if not settings_data.gym_location.address or settings_data.gym_location.latitude == 0:
+        raise HTTPException(status_code=400, detail="Valid gym location is required")
+    
+    # Check if settings exist
+    existing = await db.gym_settings.find_one({}, {"_id": 0})
+    
+    gym_location_dict = {
+        "address": settings_data.gym_location.address,
+        "latitude": settings_data.gym_location.latitude,
+        "longitude": settings_data.gym_location.longitude
+    }
+    
+    if existing:
+        # Update existing settings
+        update_data = {
+            "gym_name": settings_data.gym_name,
+            "gym_location": gym_location_dict,
+            "contact_phone": settings_data.contact_phone,
+            "contact_email": settings_data.contact_email,
+            "operating_hours": settings_data.operating_hours,
+            "updated_at": datetime.utcnow().isoformat()
+        }
+        
+        await db.gym_settings.update_one(
+            {"id": existing['id']},
+            {"$set": update_data}
+        )
+        
+        return {"message": "Gym settings updated successfully"}
+    else:
+        # Create new settings
+        new_settings = GymSettings(
+            gym_name=settings_data.gym_name,
+            gym_location=gym_location_dict,
+            contact_phone=settings_data.contact_phone,
+            contact_email=settings_data.contact_email,
+            operating_hours=settings_data.operating_hours
+        )
+        
+        settings_dict = new_settings.model_dump()
+        settings_dict['created_at'] = settings_dict['created_at'].isoformat()
+        settings_dict['updated_at'] = settings_dict['updated_at'].isoformat()
+        
+        await db.gym_settings.insert_one(settings_dict)
+        
+        return {"message": "Gym settings created successfully"}
+
 # ==================== BASIC ENDPOINTS ====================
 
 @api_router.get("/")
@@ -2174,7 +2145,20 @@ async def root():
 
 @api_router.get("/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    """Health check endpoint for monitoring"""
+    try:
+        # Check MongoDB connection
+        await db.command('ping')
+        db_status = "connected"
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "healthy", 
+        "timestamp": datetime.utcnow().isoformat(),
+        "database": db_status,
+        "service": "fitsphere-api"
+    }
 
 # Include router
 app.include_router(api_router)
@@ -2188,6 +2172,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount Socket.IO to the FastAPI app
+app.mount("/socket.io", socketio.ASGIApp(sio, other_asgi_app=app))
 
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
@@ -2196,24 +2182,51 @@ async def ping():
 
 @app.on_event("startup")
 async def startup_event():
-    """Create default admin on startup if none exists"""
-    admin_count = await db.admins.count_documents({})
-    if admin_count == 0:
-        logger.info("Creating default admin account...")
-        default_admin = Admin(
-            email="admin@fitsphere.com",
-            name="Admin",
-            password_hash=hash_password("Admin@123"),
-            role=UserRole.ADMIN
-        )
-        admin_dict = default_admin.model_dump()
-        admin_dict['created_at'] = admin_dict['created_at'].isoformat()
-        if admin_dict.get('last_login'):
-            admin_dict['last_login'] = admin_dict['last_login'].isoformat()
+    """Initialize services on startup"""
+    logger.info("Starting FitSphere API server...")
+    
+    try:
+        # Test MongoDB connection
+        await db.command('ping')
+        logger.info("✅ MongoDB connected successfully")
         
-        await db.admins.insert_one(admin_dict)
-        logger.info(f"Default admin created: admin@fitsphere.com / Admin@123")
+        # Create default admin on startup if none exists
+        admin_count = await db.admins.count_documents({})
+        if admin_count == 0:
+            logger.info("Creating default admin account...")
+            default_admin = Admin(
+                email="admin@fitsphere.com",
+                name="Admin",
+                password_hash=hash_password("Admin@123"),
+                role=UserRole.ADMIN
+            )
+            admin_dict = default_admin.model_dump()
+            admin_dict['created_at'] = admin_dict['created_at'].isoformat()
+            if admin_dict.get('last_login'):
+                admin_dict['last_login'] = admin_dict['last_login'].isoformat()
+            
+            await db.admins.insert_one(admin_dict)
+            logger.info("✅ Default admin created: admin@fitsphere.com / Admin@123")
+        
+        logger.info("✅ Server startup complete")
+        
+    except Exception as e:
+        logger.error(f"❌ Startup error: {e}")
+        raise e
 
 @app.on_event("shutdown")
-async def shutdown_db_client():
+async def shutdown_event():
+    """Cleanup on shutdown"""
+    logger.info("Shutting down server...")
     client.close()
+    logger.info("MongoDB connection closed")
+
+# For running directly with Python
+if __name__ == "__main__":
+    uvicorn.run(
+        "server:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+        log_level="info"
+    )
