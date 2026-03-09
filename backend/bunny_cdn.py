@@ -16,7 +16,7 @@ BUNNY_STREAM_API_KEY = os.getenv("BUNNY_STREAM_API_KEY")
 # =====================================================
 # BUNNY STORAGE CONFIG (FOR IMAGES / FILES)
 # =====================================================
-BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE", "fit-sphere")
+BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE", "fitsphere4565")
 BUNNY_STORAGE_PASSWORD = os.getenv("BUNNY_STORAGE_PASSWORD")
 BUNNY_STORAGE_REGION = os.getenv("BUNNY_STORAGE_REGION", "sg.storage.bunnycdn.com")
 BUNNY_PULL_ZONE_URL = os.getenv("BUNNY_PULL_ZONE_URL", "https://fit-sphere.b-cdn.net")
