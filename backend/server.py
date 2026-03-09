@@ -5,7 +5,8 @@ from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
 from pathlib import Path
 from typing import List, Optional, Annotated
-from datetime import datetime
+
+from datetime import datetime, timedelta
 import os
 import logging
 import razorpay
@@ -15,6 +16,10 @@ import io
 import csv
 import socketio
 import uvicorn
+import random
+
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
 
 # Import local modules
 from models import *
@@ -26,8 +31,7 @@ from bunny_cdn import (
     delete_from_bunny_cdn
 )
 
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+
 
 # Configure logging
 logging.basicConfig(
@@ -38,18 +42,26 @@ logger = logging.getLogger(__name__)
 
 # MongoDB connection
 try:
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+    mongo_url = os.environ.get('MONGO_URL')
+    db_name = os.environ.get('DB_NAME')
+    if not mongo_url or not db_name:
+        raise RuntimeError("MONGO_URL and DB_NAME must be set")
     client = AsyncIOMotorClient(mongo_url)
-    db = client[os.environ.get('DB_NAME', 'fitsphere')]
+    db = client[db_name]
     logger.info("MongoDB client initialized")
 except Exception as e:
     logger.error(f"Failed to initialize MongoDB: {e}")
     raise
 
 # Razorpay client
+razorpay_key_id = os.environ.get('RAZORPAY_KEY_ID')
+razorpay_key_secret = os.environ.get('RAZORPAY_KEY_SECRET')
+if not razorpay_key_id or not razorpay_key_secret:
+    raise RuntimeError("RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET must be set")
+
 razorpay_client = razorpay.Client(auth=(
-    os.environ.get('RAZORPAY_KEY_ID', ''),
-    os.environ.get('RAZORPAY_KEY_SECRET', '')
+    razorpay_key_id,
+    razorpay_key_secret
 ))
 
 # Create the main app
@@ -70,6 +82,76 @@ api_router = APIRouter(prefix="/api")
 active_connections = {}
 
 # ==================== VIDEO URL NORMALIZATION HELPERS ====================
+def normalize_media_url(url: Optional[str]) -> Optional[str]:
+    if not url:
+        return None
+
+    clean_url = url.strip()
+    if clean_url.startswith("http://") or clean_url.startswith("https://"):
+        return clean_url
+
+    pull_zone = os.environ.get("BUNNY_PULL_ZONE_URL")
+    if pull_zone:
+        return f"{pull_zone.rstrip('/')}/{clean_url.lstrip('/')}"
+
+    return clean_url
+
+
+def extract_bunny_video_id(video_url: str) -> Optional[str]:
+    if not video_url:
+        return None
+
+    if "iframe.mediadelivery.net/embed/" in video_url:
+        return video_url.rstrip("/").split("/")[-1]
+
+    if "b-cdn.net" in video_url and "/playlist.m3u8" in video_url:
+        # Example: https://vz-613768.b-cdn.net/<video_id>/playlist.m3u8
+        parts = video_url.split("/")
+        if len(parts) >= 4:
+            return parts[-2]
+
+    return None
+
+
+def ensure_product_media(product: dict) -> dict:
+    image_urls = product.get("image_urls") or []
+    if isinstance(image_urls, str):
+        image_urls = [image_urls]
+
+    if not image_urls and product.get("image_url"):
+        image_urls = [product.get("image_url")]
+
+    product["image_urls"] = [url for url in (normalize_media_url(url) for url in image_urls) if url]
+    return product
+
+
+def normalize_order_status(status_value: Optional[str]) -> str:
+    if not status_value:
+        return OrderStatus.PLACED.value
+
+    normalized = status_value.strip().lower().replace(" ", "_")
+    if normalized == OrderStatus.PENDING.value:
+        return OrderStatus.PLACED.value
+
+    allowed_statuses = {
+        OrderStatus.PLACED.value,
+        OrderStatus.PROCESSING.value,
+        OrderStatus.SHIPPED.value,
+        OrderStatus.OUT_FOR_DELIVERY.value,
+        OrderStatus.DELIVERED.value,
+        OrderStatus.CANCELLED.value,
+    }
+
+    if normalized not in allowed_statuses:
+        raise HTTPException(status_code=400, detail=f"Invalid order status: {status_value}")
+
+    return normalized
+
+
+def get_delivery_estimate(order_time: datetime) -> tuple[str, str]:
+    delivery_days = random.randint(3, 5)
+    delivery_date = (order_time + timedelta(days=delivery_days)).date().isoformat()
+    return delivery_date, "before 9:00 PM"
 
 def normalize_video_url(video_url: str) -> dict:
     """
@@ -105,17 +187,17 @@ def normalize_video_url(video_url: str) -> dict:
     
     # Bunny Stream detection
     elif "mediadelivery.net" in video_url or "b-cdn.net" in video_url:
-        # Already a CDN URL, keep as is
+        
         if "iframe.mediadelivery.net" in video_url:
             result["embed_url"] = video_url
-            # Try to extract video ID from embed URL
-            try:
-                parts = video_url.split("/")
-                if len(parts) >= 2:
-                    result["video_id"] = parts[-1]
-            except:
-                pass
+            
+            result["video_id"] = extract_bunny_video_id(video_url)
         else:
+            video_id = extract_bunny_video_id(video_url)
+            stream_library_id = os.environ.get("BUNNY_STREAM_LIBRARY_ID")
+            if video_id and stream_library_id:
+                result["video_id"] = video_id
+                result["embed_url"] = f"https://iframe.mediadelivery.net/embed/{stream_library_id}/{video_id}"
             result["video_url"] = video_url
     
     # MP4 or other direct video URLs
@@ -139,6 +221,14 @@ def transform_video_response(video: dict) -> dict:
             video["embed_url"] = normalized["embed_url"]
         if not video.get("video_id"):
             video["video_id"] = normalized["video_id"]
+    if not video.get("thumbnail_url") and video.get("video_id"):
+        stream_library_id = os.environ.get("BUNNY_STREAM_LIBRARY_ID")
+        if stream_library_id:
+            video["thumbnail_url"] = f"https://vz-{stream_library_id}.b-cdn.net/{video['video_id']}/thumbnail.jpg"
+
+    video["video_url"] = normalize_media_url(video.get("video_url"))
+    video["embed_url"] = normalize_media_url(video.get("embed_url"))
+    video["thumbnail_url"] = normalize_media_url(video.get("thumbnail_url"))
     
     return video
 
@@ -303,6 +393,7 @@ async def upload_video(
             video_url=upload_result['playback_url'],  # Use playback URL for streaming
             embed_url=upload_result['embed_url'],     # Store embed URL separately
             video_id=upload_result['video_id'],       # Store Bunny video ID
+            thumbnail_url=upload_result.get('thumbnail_url'),
             is_free=is_free
         )
         
@@ -325,7 +416,9 @@ async def upload_video(
             success=True,
             file_name=file.filename,
             file_url=upload_result['playback_url'],
-            cdn_url=upload_result['embed_url']
+            cdn_url=upload_result['embed_url'],
+            video_id=upload_result.get('video_id'),
+            embed_url=upload_result.get('embed_url')
         )
     
     except Exception as e:
@@ -352,6 +445,7 @@ async def get_videos(
     videos = await db.videos.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     
     for video in videos:
+        video = transform_video_response(video)
         for field in ['created_at', 'updated_at']:
             if isinstance(video.get(field), str):
                 video[field] = datetime.fromisoformat(video[field])
@@ -552,7 +646,9 @@ async def delete_image(image_id: str, admin: dict = Depends(get_current_admin)):
 @api_router.post("/products", response_model=Product)
 async def create_product(product: ProductCreate, admin: dict = Depends(get_current_admin)):
     """Create new product"""
-    new_product = Product(**product.model_dump())
+    payload = product.model_dump()
+    payload['image_urls'] = [url for url in (normalize_media_url(url) for url in payload.get('image_urls', [])) if url]
+    new_product = Product(**payload)
     
     product_dict = new_product.model_dump()
     product_dict['created_at'] = product_dict['created_at'].isoformat()
@@ -589,6 +685,7 @@ async def get_products(
     products = await db.products.find(query, {"_id": 0}).skip(skip).limit(limit).to_list(limit)
     
     for product in products:
+        product = ensure_product_media(product)
         for field in ['created_at', 'updated_at']:
             if isinstance(product.get(field), str):
                 product[field] = datetime.fromisoformat(product[field])
@@ -616,6 +713,7 @@ async def update_product(
 ):
     """Update product"""
     update_data = {k: v for k, v in product_update.model_dump().items() if v is not None}
+    product = ensure_product_media(product)
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
@@ -625,7 +723,12 @@ async def update_product(
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Product not found")
     
+    if 'image_urls' in update_data and update_data['image_urls'] is not None:
+        update_data['image_urls'] = [
+            url for url in (normalize_media_url(url) for url in update_data.get('image_urls', [])) if url
+        ]
     updated_product = await db.products.find_one({"id": product_id}, {"_id": 0})
+    updated_product = ensure_product_media(updated_product)
     
     for field in ['created_at', 'updated_at']:
         if isinstance(updated_product.get(field), str):
@@ -652,21 +755,231 @@ async def delete_product(product_id: str, admin: dict = Depends(get_current_admi
     
     return {"message": "Product deleted successfully"}
 
+# ==================== CART MANAGEMENT ENDPOINTS ====================
+
+async def _get_or_create_user_cart(user_id: str) -> dict:
+    cart = await db.carts.find_one({"user_id": user_id}, {"_id": 0})
+    if cart:
+        return cart
+
+    new_cart = Cart(user_id=user_id, items=[])
+    cart_dict = new_cart.model_dump()
+    cart_dict['created_at'] = cart_dict['created_at'].isoformat()
+    cart_dict['updated_at'] = cart_dict['updated_at'].isoformat()
+    await db.carts.insert_one(cart_dict)
+    return cart_dict
+
+
+def _parse_cart_dates(cart: dict) -> dict:
+    for field in ['created_at', 'updated_at']:
+        if isinstance(cart.get(field), str):
+            cart[field] = datetime.fromisoformat(cart[field])
+    return cart
+
+
+@api_router.get("/cart", response_model=Cart)
+async def get_cart(user: dict = Depends(get_current_user)):
+    cart = await _get_or_create_user_cart(user['user_id'])
+    return _parse_cart_dates(cart)
+
+
+@api_router.post("/cart/add", response_model=Cart)
+async def add_to_cart(payload: CartItemAdd, user: dict = Depends(get_current_user)):
+    product = await db.products.find_one({"id": payload.product_id, "is_active": True}, {"_id": 0})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if product.get('stock', 0) <= 0:
+        raise HTTPException(status_code=400, detail="Product is out of stock")
+
+    cart = await _get_or_create_user_cart(user['user_id'])
+    items = cart.get('items', [])
+    existing_index = next((idx for idx, item in enumerate(items) if item.get('product_id') == payload.product_id), None)
+
+    requested_quantity = max(1, payload.quantity)
+    safe_image_url = None
+    normalized_product = ensure_product_media(product)
+    if normalized_product.get('image_urls'):
+        safe_image_url = normalized_product['image_urls'][0]
+
+    if existing_index is not None:
+        current_qty = int(items[existing_index].get('quantity', 1))
+        new_qty = min(current_qty + requested_quantity, product.get('stock', current_qty + requested_quantity))
+        items[existing_index]['quantity'] = new_qty
+        items[existing_index]['price'] = float(product.get('price', 0))
+        items[existing_index]['discount'] = float(product.get('discount', 0))
+        items[existing_index]['image_url'] = safe_image_url
+        items[existing_index]['product_name'] = product.get('name', items[existing_index].get('product_name'))
+    else:
+        items.append(
+            CartItem(
+                product_id=product['id'],
+                product_name=product['name'],
+                price=float(product.get('price', 0)),
+                quantity=min(requested_quantity, product.get('stock', requested_quantity)),
+                image_url=safe_image_url,
+                discount=float(product.get('discount', 0))
+            ).model_dump()
+        )
+
+    await db.carts.update_one(
+        {"user_id": user['user_id']},
+        {
+            "$set": {
+                "items": items,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    updated = await db.carts.find_one({"user_id": user['user_id']}, {"_id": 0})
+    return _parse_cart_dates(updated)
+
+
+@api_router.put("/cart/update/{product_id}", response_model=Cart)
+async def update_cart_item(product_id: str, payload: CartItemUpdate, user: dict = Depends(get_current_user)):
+    cart = await _get_or_create_user_cart(user['user_id'])
+    items = cart.get('items', [])
+    existing_index = next((idx for idx, item in enumerate(items) if item.get('product_id') == product_id), None)
+    if existing_index is None:
+        raise HTTPException(status_code=404, detail="Product not found in cart")
+
+    product = await db.products.find_one({"id": product_id}, {"_id": 0, "stock": 1})
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    safe_qty = max(1, payload.quantity)
+    if product.get('stock', 0) > 0:
+        safe_qty = min(safe_qty, int(product['stock']))
+
+    items[existing_index]['quantity'] = safe_qty
+
+    await db.carts.update_one(
+        {"user_id": user['user_id']},
+        {
+            "$set": {
+                "items": items,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    updated = await db.carts.find_one({"user_id": user['user_id']}, {"_id": 0})
+    return _parse_cart_dates(updated)
+
+
+@api_router.delete("/cart/remove/{product_id}", response_model=Cart)
+async def remove_cart_item(product_id: str, user: dict = Depends(get_current_user)):
+    cart = await _get_or_create_user_cart(user['user_id'])
+    items = [item for item in cart.get('items', []) if item.get('product_id') != product_id]
+
+    await db.carts.update_one(
+        {"user_id": user['user_id']},
+        {
+            "$set": {
+                "items": items,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+
+    updated = await db.carts.find_one({"user_id": user['user_id']}, {"_id": 0})
+    return _parse_cart_dates(updated)
+
+
+@api_router.delete("/cart/clear", response_model=Cart)
+async def clear_cart(user: dict = Depends(get_current_user)):
+    await db.carts.update_one(
+        {"user_id": user['user_id']},
+        {
+            "$set": {
+                "items": [],
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        },
+        upsert=True
+    )
+
+    updated = await _get_or_create_user_cart(user['user_id'])
+    return _parse_cart_dates(updated)
+
+
 # ==================== ORDER MANAGEMENT ENDPOINTS ====================
 
 @api_router.post("/orders/create-razorpay-order")
-async def create_razorpay_order(order_data: OrderCreate):
+async def create_razorpay_order(order_data: OrderCreate, user: dict = Depends(get_current_user)):
     """Create Razorpay order"""
     try:
+          if not order_data.items:
+            raise HTTPException(status_code=400, detail="Order must contain at least one item")
+
+        validated_items = []
+        total_amount = 0.0
+        total_quantity = 0
+        product_ids = []
+
+        for item in order_data.items:
+            product = await db.products.find_one({"id": item.product_id, "is_active": True}, {"_id": 0})
+            if not product:
+                raise HTTPException(status_code=404, detail=f"Product not found: {item.product_id}")
+
+            requested_quantity = max(1, int(item.quantity))
+            available_stock = int(product.get('stock', 0))
+            if available_stock < requested_quantity:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient stock for {product.get('name', item.product_id)}"
+                )
+
+            unit_price = float(product.get('price', 0))
+            discount = float(product.get('discount', 0))
+            effective_price = round(unit_price * (1 - discount / 100), 2)
+
+            normalized_product = ensure_product_media(product)
+            image_url = normalized_product['image_urls'][0] if normalized_product.get('image_urls') else None
+
+            validated_items.append(
+                OrderItem(
+                    product_id=product['id'],
+                    product_name=product['name'],
+                    quantity=requested_quantity,
+                    price=effective_price,
+                    product_image_url=image_url
+                )
+            )
+
+            total_amount += effective_price * requested_quantity
+            total_quantity += requested_quantity
+            product_ids.append(product['id'])
+
+        total_amount = round(total_amount, 2)
         # Create order in Razorpay (amount in paise)
         razorpay_order = razorpay_client.order.create({
-            "amount": int(order_data.total_amount * 100),  # Convert to paise
+            "amount": int(total_amount * 100),  # Convert to paise
             "currency": "INR",
             "payment_capture": 1
         })
+        now = datetime.utcnow()
+        estimated_delivery_date, estimated_delivery_time = get_delivery_estimate(now)
         
         # Save order to database
-        order = Order(**order_data.model_dump())
+        order = Order(
+            user_id=user['user_id'],
+            items=validated_items,
+            product_ids=product_ids,
+            total_quantity=total_quantity,
+            total_amount=total_amount,
+            customer_name=order_data.customer_name,
+            customer_email=order_data.customer_email,
+            customer_phone=order_data.customer_phone,
+            shipping_address=order_data.shipping_address,
+            order_status=OrderStatus.PLACED,
+            payment_status=PaymentStatus.PENDING,
+            estimated_delivery_date=estimated_delivery_date,
+            estimated_delivery_time=estimated_delivery_time,
+            delivery_date=estimated_delivery_date
+        )
+        order.order_id = order.id
         order.razorpay_order_id = razorpay_order['id']
         
         order_dict = order.model_dump()
@@ -678,7 +991,7 @@ async def create_razorpay_order(order_data: OrderCreate):
         # Create notification
         notification = Notification(
             notification_type=NotificationType.NEW_ORDER,
-            message=f"New order received: {order_data.customer_name} - ₹{order_data.total_amount}"
+            message=f"New order received: {order_data.customer_name} - ₹{total_amount}"
         )
         notif_dict = notification.model_dump()
         notif_dict['created_at'] = notif_dict['created_at'].isoformat()
@@ -689,9 +1002,12 @@ async def create_razorpay_order(order_data: OrderCreate):
             "razorpay_order_id": razorpay_order['id'],
             "amount": razorpay_order['amount'],
             "currency": razorpay_order['currency'],
-            "razorpay_key_id": os.environ.get('RAZORPAY_KEY_ID', '')
+            "razorpay_key_id": razorpay_key_id,
+            "estimated_delivery_date": estimated_delivery_date,
+            "estimated_delivery_time": estimated_delivery_time
         }
-    
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Order creation error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -753,6 +1069,11 @@ async def verify_payment(
             }
         
         # Update order status
+        estimated_delivery_date = order.get('estimated_delivery_date')
+        estimated_delivery_time = order.get('estimated_delivery_time')
+        if not estimated_delivery_date or not estimated_delivery_time:
+            estimated_delivery_date, estimated_delivery_time = get_delivery_estimate(datetime.utcnow())
+
         await db.orders.update_one(
             {"razorpay_order_id": razorpay_order_id},
             {
@@ -1841,7 +2162,7 @@ async def verify_booking_payment(
         # Verify signature using HMAC SHA256
         message = f"{razorpay_order_id}|{razorpay_payment_id}"
         generated_signature = hmac.new(
-            os.environ.get('RAZORPAY_KEY_SECRET', '').encode('utf-8'),
+            razorpay_key_secret.encode('utf-8'),
             message.encode('utf-8'),
             hashlib.sha256
         ).hexdigest()

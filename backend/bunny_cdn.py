@@ -4,41 +4,46 @@ from fastapi import HTTPException, UploadFile
 import logging
 from dotenv import load_dotenv
 
-load_dotenv()
+from pathlib import Path
+
+load_dotenv(Path(__file__).parent / '.env')
 logger = logging.getLogger(__name__)
 
-# =====================================================
-# BUNNY STREAM CONFIG (FOR VIDEOS)
-# =====================================================
-BUNNY_STREAM_LIBRARY_ID = os.getenv("BUNNY_STREAM_LIBRARY_ID")
-BUNNY_STREAM_API_KEY = os.getenv("BUNNY_STREAM_API_KEY")
+def _get_bunny_config() -> dict:
+    return {
+        "stream_library_id": os.getenv("BUNNY_STREAM_LIBRARY_ID"),
+        "stream_api_key": os.getenv("BUNNY_STREAM_API_KEY"),
+        "storage_zone": os.getenv("BUNNY_STORAGE_ZONE"),
+        "storage_password": os.getenv("BUNNY_STORAGE_PASSWORD"),
+        "storage_region": os.getenv("BUNNY_STORAGE_REGION"),
+        "pull_zone_url": os.getenv("BUNNY_PULL_ZONE_URL"),
+    }
 
-# =====================================================
-# BUNNY STORAGE CONFIG (FOR IMAGES / FILES)
-# =====================================================
-BUNNY_STORAGE_ZONE = os.getenv("BUNNY_STORAGE_ZONE")
-BUNNY_STORAGE_PASSWORD = os.getenv("BUNNY_STORAGE_PASSWORD")
-BUNNY_STORAGE_REGION = os.getenv("BUNNY_STORAGE_REGION")
-BUNNY_PULL_ZONE_URL = os.getenv("BUNNY_PULL_ZONE_URL")
+
+cfg = _get_bunny_config()
 
 # Log configuration on startup (without sensitive data)
 logger.info(f"Bunny CDN Configuration:")
-logger.info(f"  Storage Zone: {BUNNY_STORAGE_ZONE}")
-logger.info(f"  Storage Region: {BUNNY_STORAGE_REGION}")
-logger.info(f"  Pull Zone URL: {BUNNY_PULL_ZONE_URL}")
-logger.info(f"  Stream Library ID: {BUNNY_STREAM_LIBRARY_ID}")
-logger.info(f"  Storage Password Set: {bool(BUNNY_STORAGE_PASSWORD)}")
-logger.info(f"  Stream API Key Set: {bool(BUNNY_STREAM_API_KEY)}")
+logger.info(f"  Storage Zone: {cfg['storage_zone']}")
+logger.info(f"  Storage Region: {cfg['storage_region']}")
+logger.info(f"  Pull Zone URL: {cfg['pull_zone_url']}")
+logger.info(f"  Stream Library ID: {cfg['stream_library_id']}")
+logger.info(f"  Storage Password Set: {bool(cfg['storage_password'])}")
+logger.info(f"  Stream API Key Set: {bool(cfg['stream_api_key'])}")
 
 
 # =====================================================
 # 1️⃣ CREATE VIDEO ENTRY IN BUNNY STREAM
 # =====================================================
 async def create_bunny_video(title: str):
-    url = f"https://video.bunnycdn.com/library/{BUNNY_STREAM_LIBRARY_ID}/videos"
+    config = _get_bunny_config()
+    if not config["stream_library_id"] or not config["stream_api_key"]:
+        raise HTTPException(500, "Bunny Stream credentials are missing")
+
+    url = f"https://video.bunnycdn.com/library/{config['stream_library_id']}/videos"
 
     headers = {
-        "AccessKey": BUNNY_STREAM_API_KEY,
+        "AccessKey": config["stream_api_key"],
         "Content-Type": "application/json"
     }
 
@@ -55,11 +60,13 @@ async def create_bunny_video(title: str):
 # 2️⃣ UPLOAD VIDEO TO BUNNY STREAM
 # =====================================================
 async def upload_video_to_bunny_stream(file: UploadFile, title: str):
-    if not BUNNY_STREAM_API_KEY:
+    config = _get_bunny_config()
+
+    if not config["stream_api_key"]:
         logger.error("Bunny Stream API key is missing in environment variables")
         raise HTTPException(500, "Bunny Stream API key missing")
     
-    if not BUNNY_STREAM_LIBRARY_ID:
+    if not config["stream_library_id"]:
         logger.error("Bunny Stream Library ID is missing in environment variables")
         raise HTTPException(500, "Bunny Stream Library ID missing")
 
@@ -70,10 +77,10 @@ async def upload_video_to_bunny_stream(file: UploadFile, title: str):
         video_id = video_data["guid"]
         logger.info(f"Video entry created with ID: {video_id}")
 
-        upload_url = f"https://video.bunnycdn.com/library/{BUNNY_STREAM_LIBRARY_ID}/videos/{video_id}"
+        upload_url = f"https://video.bunnycdn.com/library/{config['stream_library_id']}/videos/{video_id}"
 
         headers = {
-            "AccessKey": BUNNY_STREAM_API_KEY,
+            "AccessKey": config["stream_api_key"],
             "Content-Type": "application/octet-stream"
         }
 
@@ -89,8 +96,9 @@ async def upload_video_to_bunny_stream(file: UploadFile, title: str):
             raise HTTPException(500, f"Upload failed: {res.text}")
 
         # important URLs for frontend
-        embed_url = f"https://iframe.mediadelivery.net/embed/{BUNNY_STREAM_LIBRARY_ID}/{video_id}"
-        playback_url = f"https://vz-{BUNNY_STREAM_LIBRARY_ID}.b-cdn.net/{video_id}/playlist.m3u8"
+        embed_url = f"https://iframe.mediadelivery.net/embed/{config['stream_library_id']}/{video_id}"
+        playback_url = f"https://vz-{config['stream_library_id']}.b-cdn.net/{video_id}/playlist.m3u8"
+        thumbnail_url = f"https://vz-{config['stream_library_id']}.b-cdn.net/{video_id}/thumbnail.jpg"
         
         logger.info(f"Video uploaded successfully to Bunny Stream. Video ID: {video_id}")
         logger.info(f"Embed URL: {embed_url}")
@@ -100,6 +108,7 @@ async def upload_video_to_bunny_stream(file: UploadFile, title: str):
             "video_id": video_id,
             "embed_url": embed_url,
             "playback_url": playback_url,
+            "thumbnail_url": thumbnail_url,
             "success": True
         }
     except HTTPException:
@@ -112,10 +121,14 @@ async def upload_video_to_bunny_stream(file: UploadFile, title: str):
 # 3️⃣ DELETE VIDEO FROM BUNNY STREAM
 # =====================================================
 async def delete_bunny_stream_video(video_id: str):
-    url = f"https://video.bunnycdn.com/library/{BUNNY_STREAM_LIBRARY_ID}/videos/{video_id}"
+    config = _get_bunny_config()
+    if not config["stream_library_id"] or not config["stream_api_key"]:
+        raise HTTPException(500, "Bunny Stream credentials are missing")
+
+    url = f"https://video.bunnycdn.com/library/{config['stream_library_id']}/videos/{video_id}"
 
     headers = {
-        "AccessKey": BUNNY_STREAM_API_KEY
+        "AccessKey": config["stream_api_key"]
     }
 
     async with httpx.AsyncClient() as client:
@@ -128,29 +141,31 @@ async def delete_bunny_stream_video(video_id: str):
 # 4️⃣ UPLOAD IMAGE / FILE TO STORAGE (OPTIONAL)
 # =====================================================
 async def upload_to_bunny_storage(file: UploadFile, destination_path: str):
-    if not BUNNY_STORAGE_PASSWORD:
+    config = _get_bunny_config()
+
+    if not config["storage_password"]:
         logger.error("Bunny Storage password is missing in environment variables")
         raise HTTPException(500, "Storage password missing")
     
-    if not BUNNY_STORAGE_ZONE:
+    if not config["storage_zone"]:
         logger.error("Bunny Storage Zone is missing in environment variables")
         raise HTTPException(500, "Storage Zone missing")
     
-    if not BUNNY_STORAGE_REGION:
+    if not config["storage_region"]:
         logger.error("Bunny Storage Region is missing in environment variables")
         raise HTTPException(500, "Storage Region missing")
     
-    if not BUNNY_PULL_ZONE_URL:
+    if not config["pull_zone_url"]:
         logger.error("Bunny Pull Zone URL is missing in environment variables")
         raise HTTPException(500, "Pull Zone URL missing")
 
     try:
-        upload_url = f"https://{BUNNY_STORAGE_REGION}/{BUNNY_STORAGE_ZONE}/{destination_path}"
+        upload_url = f"https://{config['storage_region']}/{config['storage_zone']}/{destination_path}"
         logger.info(f"Uploading to Bunny Storage: {destination_path}")
         logger.info(f"Upload URL: {upload_url}")
 
         headers = {
-            "AccessKey": BUNNY_STORAGE_PASSWORD,
+            "AccessKey": config["storage_password"],
             "Content-Type": "application/octet-stream"
         }
 
@@ -165,7 +180,7 @@ async def upload_to_bunny_storage(file: UploadFile, destination_path: str):
             logger.error(f"Storage upload failed. Status: {res.status_code}, Response: {res.text}")
             raise HTTPException(500, f"Storage upload failed: {res.text}")
 
-        cdn_url = f"{BUNNY_PULL_ZONE_URL}/{destination_path}"
+        cdn_url = f"{config['pull_zone_url']}/{destination_path}"
         logger.info(f"File uploaded successfully to Bunny Storage")
         logger.info(f"CDN URL: {cdn_url}")
 
@@ -185,13 +200,15 @@ async def upload_to_bunny_storage(file: UploadFile, destination_path: str):
 # =====================================================
 async def delete_from_bunny_cdn(file_path: str):
     """Delete a file from Bunny Storage"""
-    if not BUNNY_STORAGE_PASSWORD:
+    config = _get_bunny_config()
+
+    if not config["storage_password"]:
         raise HTTPException(500, "Storage password missing")
 
-    delete_url = f"https://{BUNNY_STORAGE_REGION}/{BUNNY_STORAGE_ZONE}/{file_path}"
+    delete_url = f"https://{config['storage_region']}/{config['storage_zone']}/{file_path}"
 
     headers = {
-        "AccessKey": BUNNY_STORAGE_PASSWORD
+        "AccessKey": config["storage_password"]
     }
 
     async with httpx.AsyncClient(timeout=60.0) as client:

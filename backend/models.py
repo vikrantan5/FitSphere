@@ -10,11 +10,13 @@ class UserRole(str, Enum):
     USER = "user"
 
 class OrderStatus(str, Enum):
-    PENDING = "pending"
+    PLACED = "placed"
     PROCESSING = "processing"
     SHIPPED = "shipped"
+    OUT_FOR_DELIVERY = "out_for_delivery"
     DELIVERED = "delivered"
     CANCELLED = "cancelled"
+    PENDING = "pending"  # Legacy status retained for backward compatibility
 
 class PaymentStatus(str, Enum):
     PENDING = "pending"
@@ -172,6 +174,7 @@ class ProductCreate(BaseModel):
     stock: int
     category: str
     sku: str
+    rating: float = 4.5
     image_urls: List[str] = []
 
 class Product(BaseModel):
@@ -184,6 +187,7 @@ class Product(BaseModel):
     stock: int
     category: str
     sku: str
+    rating: float = 4.5
     image_urls: List[str] = []
     is_active: bool = True
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -197,6 +201,7 @@ class ProductUpdate(BaseModel):
     stock: Optional[int] = None
     category: Optional[str] = None
     sku: Optional[str] = None
+    rating: Optional[float] = None
     image_urls: Optional[List[str]] = None
     is_active: Optional[bool] = None
 
@@ -205,9 +210,10 @@ class OrderItem(BaseModel):
     product_name: str
     quantity: int
     price: float
+    product_image_url: Optional[str] = None
 
 class OrderCreate(BaseModel):
-    user_id: str
+    user_id: Optional[str] = None
     items: List[OrderItem]
     total_amount: float
     customer_name: str
@@ -217,18 +223,22 @@ class OrderCreate(BaseModel):
 
 class Order(BaseModel):
     model_config = ConfigDict(extra="ignore")
+    order_id: Optional[str] = None
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str
     items: List[OrderItem]
+    product_ids: List[str] = []
+    total_quantity: int = 0
     total_amount: float
     customer_name: str
     customer_email: EmailStr
     customer_phone: str
     shipping_address: str
-    order_status: OrderStatus = OrderStatus.PENDING
+    order_status: OrderStatus = OrderStatus.PLACED
     payment_status: PaymentStatus = PaymentStatus.PENDING
     payment_id: Optional[str] = None
     razorpay_order_id: Optional[str] = None
+    delivery_date: Optional[str] = None
     estimated_delivery_date: Optional[str] = None
     estimated_delivery_time: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
@@ -238,6 +248,7 @@ class Payment(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     order_id: str
+    user_id: Optional[str] = None
     razorpay_payment_id: str
     razorpay_order_id: str
     razorpay_signature: str
