@@ -2172,8 +2172,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Mount Socket.IO to the FastAPI app
-app.mount("/socket.io", socketio.ASGIApp(sio, other_asgi_app=app))
+# Mount Socket.IO to the FastAPI app (FIXED: removed circular reference)
+app.mount("/socket.io", socketio.ASGIApp(sio))
 
 @app.api_route("/ping", methods=["GET", "HEAD"])
 async def ping():
