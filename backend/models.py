@@ -229,6 +229,8 @@ class Order(BaseModel):
     payment_status: PaymentStatus = PaymentStatus.PENDING
     payment_id: Optional[str] = None
     razorpay_order_id: Optional[str] = None
+    estimated_delivery_date: Optional[str] = None
+    estimated_delivery_time: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 

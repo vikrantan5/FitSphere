@@ -962,6 +962,35 @@ async def update_order_status(
     
     return {"message": "Order status updated successfully"}
 
+
+@api_router.put("/orders/{order_id}/delivery-time")
+async def update_delivery_time(
+    order_id: str,
+    estimated_delivery_date: str = Form(...),
+    estimated_delivery_time: str = Form(...),
+    admin: dict = Depends(get_current_admin)
+):
+    """Update estimated delivery date and time for an order"""
+    result = await db.orders.update_one(
+        {"id": order_id},
+        {
+            "$set": {
+                "estimated_delivery_date": estimated_delivery_date,
+                "estimated_delivery_time": estimated_delivery_time,
+                "updated_at": datetime.utcnow().isoformat()
+            }
+        }
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    return {
+        "message": "Delivery time updated successfully",
+        "estimated_delivery_date": estimated_delivery_date,
+        "estimated_delivery_time": estimated_delivery_time
+    }
+
 @api_router.get("/orders/export/csv")
 async def export_orders_csv(admin: dict = Depends(get_current_admin)):
     """Export orders to CSV"""

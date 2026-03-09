@@ -314,6 +314,19 @@ export default function UserDashboard() {
                           <p className="text-gray-500">Shipping Address</p>
                           <p className="font-medium">{order.shipping_address}</p>
                         </div>
+                         {order.estimated_delivery_date && order.estimated_delivery_time && (
+                          <div className="col-span-2 mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-5 h-5 text-green-600" />
+                              <div>
+                                <p className="text-xs text-green-600 font-semibold uppercase tracking-wider">Estimated Delivery</p>
+                                <p className="font-bold text-green-800">
+                                  {new Date(order.estimated_delivery_date).toLocaleDateString()} at {order.estimated_delivery_time}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </Card>

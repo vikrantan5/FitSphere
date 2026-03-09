@@ -8,6 +8,8 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedOrder, setSelectedOrder] = useState(null);
+   const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTime, setDeliveryTime] = useState('');
 
   useEffect(() => {
     loadOrders();
@@ -34,6 +36,28 @@ export default function OrdersPage() {
     } catch (error) {
       console.error('Update status error:', error);
       toast.error('Failed to update status');
+    }
+  };
+
+   const updateDeliveryTime = async (orderId) => {
+    if (!deliveryDate || !deliveryTime) {
+      toast.error('Please select both delivery date and time');
+      return;
+    }
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append('estimated_delivery_date', deliveryDate);
+      formData.append('estimated_delivery_time', deliveryTime);
+
+      await orderAPI.updateDeliveryTime(orderId, formData);
+      toast.success('Delivery time updated successfully');
+      loadOrders();
+      setDeliveryDate('');
+      setDeliveryTime('');
+    } catch (error) {
+      console.error('Update delivery time error:', error);
+      toast.error('Failed to update delivery time');
     }
   };
 
@@ -265,6 +289,47 @@ export default function OrdersPage() {
                   <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
+              </div>
+
+                 <div>
+                <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Set Estimated Delivery Time</p>
+                <div className="bg-[#fdfbf7] p-4 border border-stone-200 space-y-3">
+                  {selectedOrder.estimated_delivery_date && selectedOrder.estimated_delivery_time && (
+                    <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded">
+                      <p className="text-xs text-green-800 uppercase tracking-wider">Current Delivery Estimate</p>
+                      <p className="text-sm font-medium text-green-900 mt-1">
+                        {new Date(selectedOrder.estimated_delivery_date).toLocaleDateString()} at {selectedOrder.estimated_delivery_time}
+                      </p>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-[#5a5a5a] uppercase tracking-wider block mb-1">Date</label>
+                      <input
+                        type="date"
+                        value={deliveryDate}
+                        onChange={(e) => setDeliveryDate(e.target.value)}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="w-full border border-stone-300 rounded-none p-2 focus:outline-none focus:border-[#0f5132] text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-[#5a5a5a] uppercase tracking-wider block mb-1">Time</label>
+                      <input
+                        type="time"
+                        value={deliveryTime}
+                        onChange={(e) => setDeliveryTime(e.target.value)}
+                        className="w-full border border-stone-300 rounded-none p-2 focus:outline-none focus:border-[#0f5132] text-sm"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => updateDeliveryTime(selectedOrder.id)}
+                    className="w-full bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] text-white py-2 rounded-full hover:opacity-90 transition-all uppercase tracking-wider text-xs font-semibold"
+                  >
+                    Set Delivery Time
+                  </button>
+                </div>
               </div>
 
               <button
