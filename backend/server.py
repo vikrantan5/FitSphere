@@ -401,6 +401,8 @@ async def upload_video(
         
         # Use custom thumbnail if provided, otherwise use Bunny's auto-generated one
         final_thumbnail_url = thumbnail_url or upload_result.get('thumbnail_url')
+        logger.info(f"Final thumbnail URL for video '{title}': {final_thumbnail_url}")
+        logger.info(f"Custom thumbnail was {'provided' if thumbnail_url else 'not provided'}")
         
         # Save video metadata to database
         video = Video(
@@ -419,6 +421,8 @@ async def upload_video(
         video_dict = video.model_dump()
         video_dict['created_at'] = video_dict['created_at'].isoformat()
         video_dict['updated_at'] = video_dict['updated_at'].isoformat()
+
+        logger.info(f"Saving video to database with thumbnail_url: {video_dict.get('thumbnail_url')}")
         
         await db.videos.insert_one(video_dict)
         
@@ -666,6 +670,21 @@ async def update_video_thumbnail(video_id: str, admin: dict = Depends(get_curren
     if not stream_library_id or not stream_api_key:
         raise HTTPException(status_code=500, detail="Bunny Stream configuration missing")
 
+      # Check if a custom thumbnail already exists (uploaded to Bunny Storage, not Stream)
+    existing_thumbnail = video.get("thumbnail_url", "")
+    bunny_auto_thumbnail_pattern = f"https://vz-{stream_library_id}.b-cdn.net/{bunny_video_id}/thumbnail.jpg"
+    
+    # If custom thumbnail exists (not the auto-generated Bunny Stream thumbnail), don't overwrite it
+    if existing_thumbnail and existing_thumbnail != bunny_auto_thumbnail_pattern and "thumbnails/" in existing_thumbnail:
+        logger.info(f"Video {video_id} already has a custom thumbnail. Preserving it: {existing_thumbnail}")
+        return {
+            "success": True,
+            "video_id": video_id,
+            "thumbnail_url": existing_thumbnail,
+            "message": "Custom thumbnail preserved"
+        }
+
+
     url = f"https://video.bunnycdn.com/library/{stream_library_id}/videos/{bunny_video_id}"
     headers = {"AccessKey": stream_api_key}
 
@@ -679,7 +698,8 @@ async def update_video_thumbnail(video_id: str, admin: dict = Depends(get_curren
     if status_code < 3:
         raise HTTPException(status_code=409, detail="Video is still processing")
 
-    thumbnail_url = f"https://vz-{stream_library_id}.b-cdn.net/{bunny_video_id}/thumbnail.jpg"
+    # Only set Bunny's auto-generated thumbnail if no custom thumbnail exists
+    thumbnail_url = bunny_auto_thumbnail_pattern
     await db.videos.update_one(
         {"id": video_id},
         {"$set": {"thumbnail_url": thumbnail_url, "updated_at": datetime.utcnow().isoformat()}}
