@@ -155,6 +155,20 @@ export default function UserSessionsPage() {
   const handleLocationChange = (location) => {
     setBookingForm({ ...bookingForm, user_location: location });
   };
+const handleCancelBooking = async (bookingId) => {
+    if (!window.confirm('Are you sure you want to cancel this booking?')) {
+      return;
+    }
+
+    try {
+      await bookingAPI.cancel(bookingId);
+      toast.success('Booking cancelled successfully');
+      fetchData(); // Refresh bookings list
+    } catch (error) {
+      console.error('Cancel booking error:', error);
+      toast.error(error.response?.data?.detail || 'Failed to cancel booking');
+    }
+  };
 
 
   const handlePayForBooking = async (booking) => {
@@ -265,58 +279,63 @@ export default function UserSessionsPage() {
 
       toast.success('Session booked successfully! Proceeding to payment...');
       
-      // Create payment for the booking
-      const paymentResponse = await bookingAPI.createPayment(bookingId);
+      // ISSUE 2 FIX: Close modal before opening Razorpay
+      setShowBookingModal(false);
       
-      // Check if Razorpay is loaded
-      if (!window.Razorpay) {
-        toast.error('Payment gateway not loaded. Please refresh the page.');
-        return;
-      }
-      
-      // Initialize Razorpay
-      const options = {
-        key: paymentResponse.data.razorpay_key_id,
-        amount: paymentResponse.data.amount,
-        currency: paymentResponse.data.currency,
-        name: 'FitSphere',
-        description: `Training Session: ${selectedProgram.title}`,
-        order_id: paymentResponse.data.razorpay_order_id,
-        handler: async function (paymentResult) {
-          try {
-            // Create FormData and append payment details
-            const verifyData = new FormData();
-            verifyData.append('razorpay_order_id', paymentResult.razorpay_order_id);
-            verifyData.append('razorpay_payment_id', paymentResult.razorpay_payment_id);
-            verifyData.append('razorpay_signature', paymentResult.razorpay_signature);
-
-            await bookingAPI.verifyPayment(bookingId, verifyData);
-            
-            toast.success('Payment successful! Session booked.');
-            setShowBookingModal(false);
-            fetchData(); // Refresh bookings list
-          } catch (error) {
-            console.error('Payment verification error:', error);
-            toast.error('Payment verification failed');
-          }
-        },
-        prefill: {
-          name: JSON.parse(localStorage.getItem('user') || '{}').name || '',
-          email: JSON.parse(localStorage.getItem('user') || '{}').email || '',
-          contact: JSON.parse(localStorage.getItem('user') || '{}').phone || ''
-        },
-        theme: {
-          color: '#9333ea'
-        },
-        modal: {
-          ondismiss: function() {
-            toast.info('Payment cancelled. Your booking is saved, you can pay later.');
-          }
+      // ISSUE 2 FIX: Add delay before opening Razorpay
+      setTimeout(async () => {
+        // Create payment for the booking
+        const paymentResponse = await bookingAPI.createPayment(bookingId);
+        
+        // Check if Razorpay is loaded
+        if (!window.Razorpay) {
+          toast.error('Payment gateway not loaded. Please refresh the page.');
+          return;
         }
-      };
+        
+        // Initialize Razorpay
+        const options = {
+          key: paymentResponse.data.razorpay_key_id,
+          amount: paymentResponse.data.amount,
+          currency: paymentResponse.data.currency,
+          name: 'FitSphere',
+          description: `Training Session: ${selectedProgram.title}`,
+          order_id: paymentResponse.data.razorpay_order_id,
+          handler: async function (paymentResult) {
+            try {
+              // Create FormData and append payment details
+              const verifyData = new FormData();
+              verifyData.append('razorpay_order_id', paymentResult.razorpay_order_id);
+              verifyData.append('razorpay_payment_id', paymentResult.razorpay_payment_id);
+              verifyData.append('razorpay_signature', paymentResult.razorpay_signature);
 
-      const razorpay = new window.Razorpay(options);
-      razorpay.open();
+              await bookingAPI.verifyPayment(bookingId, verifyData);
+              
+              toast.success('Payment successful! Session booked.');
+              fetchData(); // Refresh bookings list
+            } catch (error) {
+              console.error('Payment verification error:', error);
+              toast.error('Payment verification failed');
+            }
+          },
+          prefill: {
+            name: JSON.parse(localStorage.getItem('user') || '{}').name || '',
+            email: JSON.parse(localStorage.getItem('user') || '{}').email || '',
+            contact: JSON.parse(localStorage.getItem('user') || '{}').phone || ''
+          },
+          theme: {
+            color: '#9333ea'
+          },
+          modal: {
+            ondismiss: function() {
+              toast.info('Payment cancelled. Your booking is saved, you can pay later.');
+            }
+          }
+        };
+
+        const razorpay = new window.Razorpay(options);
+        razorpay.open();
+      }, 200); // 200ms delay
       
     } catch (error) {
       console.error('Booking error:', error);
@@ -455,20 +474,31 @@ export default function UserSessionsPage() {
               ₹{booking.amount}
             </p>
 
-            {/* Pay Now */}
+                        {/* Action Buttons */}
             {booking.payment_status !== "success" &&
               booking.status !== "cancelled" && (
-                <Button
-                  onClick={() => handlePayForBooking(booking)}
-                  disabled={payingBookingId === booking.id}
-                  size="sm"
-                  className="w-full mt-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all"
-                  data-testid="pay-now-btn"
-                >
-                  {payingBookingId === booking.id
-                    ? "Processing..."
-                    : "Pay Now"}
-                </Button>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    onClick={() => handlePayForBooking(booking)}
+                    disabled={payingBookingId === booking.id}
+                    size="sm"
+                    className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all"
+                    data-testid="pay-now-btn"
+                  >
+                    {payingBookingId === booking.id
+                      ? "Processing..."
+                      : "Pay Now"}
+                  </Button>
+                  <Button
+                    onClick={() => handleCancelBooking(booking.id)}
+                    size="sm"
+                    variant="outline"
+                    className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50"
+                    data-testid="cancel-booking-btn"
+                  >
+                    Cancel Booking
+                  </Button>
+                </div>
               )}
           </div>
         </Card>

@@ -1254,8 +1254,7 @@ async def verify_payment(
                 "message": "Payment already processed",
                 "order_id": order['id']
             }
-        
-        # Update order status
+        # Update order status - only set delivery estimates on successful payment
         estimated_delivery_date = order.get('estimated_delivery_date')
         estimated_delivery_time = order.get('estimated_delivery_time')
         if not estimated_delivery_date or not estimated_delivery_time:
@@ -1268,6 +1267,8 @@ async def verify_payment(
                     "payment_status": PaymentStatus.SUCCESS.value,
                     "payment_id": razorpay_payment_id,
                     "order_status": OrderStatus.PROCESSING.value,
+                    "estimated_delivery_date": estimated_delivery_date,
+                    "estimated_delivery_time": estimated_delivery_time,
                     "updated_at": datetime.utcnow().isoformat()
                 }
             }
@@ -1374,12 +1375,13 @@ async def razorpay_webhook(request: dict):
             
             logger.warning(f"Payment failed - Order: {razorpay_order_id}")
             
-            # Update order status
+              # Update order status to payment_failed
             await db.orders.update_one(
                 {"razorpay_order_id": razorpay_order_id},
                 {
                     "$set": {
                         "payment_status": PaymentStatus.FAILED.value,
+                          "order_status": OrderStatus.CANCELLED.value,
                         "updated_at": datetime.utcnow().isoformat()
                     }
                 }
@@ -1391,6 +1393,7 @@ async def razorpay_webhook(request: dict):
                 {
                     "$set": {
                         "payment_status": PaymentStatus.FAILED.value,
+                           "status": BookingStatus.CANCELLED.value,
                         "updated_at": datetime.utcnow().isoformat()
                     }
                 }
@@ -2368,6 +2371,42 @@ async def update_booking_status(
         raise HTTPException(status_code=404, detail="Booking not found")
     
     return {"message": "Booking updated successfully"}
+
+@api_router.delete("/bookings/{booking_id}")
+async def cancel_booking(
+    booking_id: str,
+    user: dict = Depends(get_current_user)
+):
+    """Cancel/delete a booking (only if payment is pending)"""
+    # Find the booking
+    booking = await db.bookings.find_one({"id": booking_id}, {"_id": 0})
+    
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    # Check if user owns this booking
+    if booking['user_id'] != user['user_id']:
+        raise HTTPException(status_code=403, detail="Not authorized to cancel this booking")
+    
+    # Only allow cancellation if payment is pending
+    if booking.get('payment_status') != PaymentStatus.PENDING.value:
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot cancel booking. Payment has already been processed."
+        )
+    
+    # Delete the booking
+    result = await db.bookings.delete_one({"id": booking_id})
+    
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    
+    logger.info(f"Booking {booking_id} cancelled by user {user['user_id']}")
+    
+    return {
+        "success": True,
+        "message": "Booking cancelled successfully"
+    }
 
 @api_router.get("/bookings/trainer/{trainer_id}/available-slots")
 async def get_available_slots(

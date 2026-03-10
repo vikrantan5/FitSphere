@@ -499,7 +499,7 @@ return (
                               </div>
                             </div>
 
-                            {order.estimated_delivery_date && order.estimated_delivery_time && (
+                               {order.payment_status === 'success' && order.estimated_delivery_date && order.estimated_delivery_time && (
                               <motion.div 
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
@@ -520,6 +520,42 @@ return (
                                         day: 'numeric'
                                       })} at {order.estimated_delivery_time}
                                     </p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                               {/* ISSUE 4 FIX: Show payment failed UI with retry/cancel options */}
+                            {order.payment_status === 'failed' && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-4 p-4 bg-gradient-to-r from-red-500/10 to-orange-500/10 border border-red-500/20 rounded-xl"
+                                data-testid={`order-payment-failed-${order.id}`}
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div>
+                                    <p className="text-xs text-red-400 font-semibold uppercase tracking-wider mb-1">
+                                      Payment Failed
+                                    </p>
+                                    <p className="text-sm text-red-300">
+                                      Your payment could not be processed
+                                    </p>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-red-500/30 text-red-400 hover:bg-red-500/10"
+                                    >
+                                      Retry Payment
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="border-zinc-500/30 text-zinc-400 hover:bg-zinc-500/10"
+                                    >
+                                      Cancel Order
+                                    </Button>
                                   </div>
                                 </div>
                               </motion.div>

@@ -136,3 +136,14 @@ code {
         border-bottom-color: inherit;
     }
 }
+
+
+/* ISSUE 2 FIX: Razorpay z-index fix */
+.razorpay-container {
+    z-index: 999999 !important;
+}
+
+/* Remove pointer blocking from modal backdrop */
+.modal-backdrop {
+    pointer-events: none !important;
+}
