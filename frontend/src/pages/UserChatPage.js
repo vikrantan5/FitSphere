@@ -4,7 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Send, MessageCircle, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { chatAPI } from '../utils/api';
-import { initializeSocket, sendMessage, onNewMessage, disconnectSocket } from '../utils/socket';
+import { initializeSocket, onNewMessage, disconnectSocket } from '../utils/socket';
 import { toast } from 'sonner';
 import { UserLayout } from '@/components/user/UserLayout';
 
@@ -15,6 +15,27 @@ export default function UserChatPage() {
   const [user, setUser] = useState(null);
 const [expandedFaq, setExpandedFaq] = useState(null);
   const messagesEndRef = useRef(null);
+
+  
+  const resolveAuthUser = (rawUser) => {
+    if (!rawUser || typeof rawUser !== 'object') return null;
+
+    const resolvedId = rawUser.id || rawUser.user_id || rawUser.admin_id;
+    if (!resolvedId) return null;
+
+    return {
+      ...rawUser,
+      id: resolvedId,
+      role: rawUser.role || 'user',
+    };
+  };
+
+  const addMessageUnique = (incomingMessage) => {
+    setMessages((prev) => {
+      const alreadyExists = prev.some((msg) => msg.id === incomingMessage.id);
+      return alreadyExists ? prev : [...prev, incomingMessage];
+    });
+  };
 
   // FAQ Data - System Usage Questions
   const faqs = [
@@ -50,17 +71,17 @@ const [expandedFaq, setExpandedFaq] = useState(null);
   };
 
   useEffect(() => {
-    const userData = JSON.parse(localStorage.getItem('user') || '{}');
-    setUser(userData);
+    const rawUserData = JSON.parse(localStorage.getItem('user') || '{}');
+    const normalizedUser = resolveAuthUser(rawUserData);
+    setUser(normalizedUser);
 
-    if (userData.id) {
-      initializeSocket(userData.id, userData.name, 'user');
+      if (normalizedUser?.id) {
+      initializeSocket(normalizedUser.id, normalizedUser.name, normalizedUser.role || 'user');
 
       fetchMessages();
 
       onNewMessage((message) => {
-        setMessages(prev => [...prev, message]);
-        scrollToBottom();
+         addMessageUnique(message);
       });
     }
 
@@ -89,10 +110,29 @@ const [expandedFaq, setExpandedFaq] = useState(null);
   };
 
   const handleSendMessage = () => {
-    if (!newMessage.trim() || !user) return;
+     sendMessageToAdmin();
+  };
 
-    sendMessage(newMessage, user.id, user.name, 'user', null);
+  const sendMessageToAdmin = async () => {
+    const messageText = newMessage.trim();
+    if (!messageText || !user?.id) return;
+
+   
     setNewMessage('');
+     try {
+      const response = await chatAPI.send({
+        sender_id: user.id,
+        sender_name: user.name,
+        sender_role: 'user',
+        message: messageText,
+      });
+
+      addMessageUnique(response.data);
+      scrollToBottom();
+    } catch (error) {
+      toast.error('Failed to send message');
+      setNewMessage(messageText);
+    }
   };
 
   const handleKeyPress = (e) => {
@@ -135,6 +175,7 @@ const [expandedFaq, setExpandedFaq] = useState(null);
                   <button
                     onClick={() => toggleFaq(faq.id)}
                     className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-zinc-800/50"
+                     data-testid={`faq-toggle-${faq.id}`}
                   >
                     <span className="font-semibold text-white">
                       {faq.question}

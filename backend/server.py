@@ -282,7 +282,10 @@ async def send_message(sid, data):
         
         await db.chat_messages.insert_one(message_dict)
         
-        # Emit to receiver
+ # Emit to sender room so sender can see the message instantly
+        sender_room = f"user_{data['sender_id']}"
+        await sio.emit('new_message', message_dict, room=sender_room)
+        # Emit to receiver/admin room
         if data.get('receiver_id'):
             await sio.emit('new_message', message_dict, room=f"user_{data['receiver_id']}")
         else:

@@ -108,6 +108,21 @@ export const notificationAPI = {
 export const chatAPI = {
   getMessages: (params) => api.get('/chat/messages', { params }),
   markRead: (messageId) => api.put(`/chat/messages/${messageId}/read`),
+   send: (data) => {
+    const formData = new FormData();
+    formData.append('sender_id', data.sender_id);
+    formData.append('sender_name', data.sender_name);
+    formData.append('sender_role', data.sender_role);
+    formData.append('message', data.message);
+
+    if (data.receiver_id) {
+      formData.append('receiver_id', data.receiver_id);
+    }
+
+    return api.post('/chat/send', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+  },
 };
 
 // Testimonial APIs

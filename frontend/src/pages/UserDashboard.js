@@ -340,20 +340,9 @@ return (
             >
               <Card 
                 className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all touch-manipulation"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Card clicked:', action.path);
-                  navigate(action.path);
-                }}
-                onTouchEnd={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  console.log('Card touch end:', action.path);
-                  navigate(action.path);
-                }}
+               onClick={() => navigate(action.path)}
                 data-testid={action.testId}
-                style={{ position: 'relative', touchAction: 'manipulation' }}
+               style={{ position: 'relative', touchAction: 'pan-y' }}
               >
                 <div 
                   className={`absolute inset-0 bg-gradient-to-br from-${action.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}

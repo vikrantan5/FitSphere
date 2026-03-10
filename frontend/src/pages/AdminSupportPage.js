@@ -6,7 +6,8 @@ import { MessageSquare, User, Clock, Send, Search } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import axios from 'axios';
-import { initializeSocket, sendMessage, onNewMessage, disconnectSocket } from '../utils/socket';
+import { initializeSocket, onNewMessage, disconnectSocket } from '../utils/socket';
+import { chatAPI } from '../utils/api';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -21,18 +22,40 @@ export default function AdminSupportPage() {
   const [users, setUsers] = useState({});
   const [admin, setAdmin] = useState(null);
 
+
+   const resolveAuthUser = (rawUser) => {
+    if (!rawUser || typeof rawUser !== 'object') return null;
+
+    const resolvedId = rawUser.id || rawUser.admin_id || rawUser.user_id;
+    if (!resolvedId) return null;
+
+    return {
+      ...rawUser,
+      id: resolvedId,
+      role: rawUser.role || 'admin',
+    };
+  };
+
+  const addMessageUnique = (incomingMessage) => {
+    setMessages((prev) => {
+      const alreadyExists = prev.some((msg) => msg.id === incomingMessage.id);
+      return alreadyExists ? prev : [...prev, incomingMessage];
+    });
+  };
+
   useEffect(() => {
       // Get admin data and initialize socket
-    const adminData = JSON.parse(localStorage.getItem('user') || '{}');
-    setAdmin(adminData);
+    const rawAdminData = JSON.parse(localStorage.getItem('user') || '{}');
+    const normalizedAdmin = resolveAuthUser(rawAdminData);
+    setAdmin(normalizedAdmin);
     
-    if (adminData.id) {
+    if (normalizedAdmin?.id) {
       // Initialize socket for admin
-      initializeSocket(adminData.id, adminData.name || 'Admin', 'admin');
+      initializeSocket(normalizedAdmin.id, normalizedAdmin.name || 'Admin', 'admin');
       
       // Listen for new messages
       onNewMessage((message) => {
-        setMessages(prev => [...prev, message]);
+         addMessageUnique(message);
         fetchMessages(); // Refresh to get updated list
       });
     }
@@ -98,9 +121,18 @@ export default function AdminSupportPage() {
     }
 
     try {
-      // Send via Socket.IO
-      sendMessage(replyText, admin.id, admin.name || 'Admin', 'admin', receiverId);
+      const messageText = replyText.trim();
 
+      const response = await chatAPI.send({
+        sender_id: admin.id,
+        sender_name: admin.name || 'Admin',
+        sender_role: 'admin',
+        receiver_id: receiverId,
+        message: messageText,
+      });
+
+      addMessageUnique(response.data);
+     
      toast.success('Reply sent successfully');
       setReplyText('');
       
@@ -186,6 +218,7 @@ export default function AdminSupportPage() {
                     onClick={() => setSelectedUserId(selectedUserId === userId ? null : userId)}
                     variant="outline"
                     size="sm"
+                        data-testid={`toggle-user-thread-${userId}`}
                   >
                     {selectedUserId === userId ? 'Hide' : 'View & Reply'}
                   </Button>
