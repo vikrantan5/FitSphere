@@ -221,11 +221,13 @@ def transform_video_response(video: dict) -> dict:
             video["embed_url"] = normalized["embed_url"]
         if not video.get("video_id"):
             video["video_id"] = normalized["video_id"]
+     # Generate thumbnail URL if missing and we have a video_id
     if not video.get("thumbnail_url") and video.get("video_id"):
         stream_library_id = os.environ.get("BUNNY_STREAM_LIBRARY_ID")
         if stream_library_id:
+            #  Use Bunny CDN thumbnail URL with timestamp to avoid caching issues
             video["thumbnail_url"] = f"https://vz-{stream_library_id}.b-cdn.net/{video['video_id']}/thumbnail.jpg"
-
+ # Normalize all media URLs
     video["video_url"] = normalize_media_url(video.get("video_url"))
     video["embed_url"] = normalize_media_url(video.get("embed_url"))
     video["thumbnail_url"] = normalize_media_url(video.get("thumbnail_url"))
