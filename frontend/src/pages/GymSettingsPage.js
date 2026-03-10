@@ -63,6 +63,10 @@ export default function GymSettingsPage() {
       return;
     }
     loadSettings();
+       // Cleanup function to ensure component properly unmounts
+    return () => {
+      console.log('GymSettingsPage unmounting');
+    };
 }, [navigate, loadSettings]); // Added dependencies
   const handleSubmit = async (e) => {
     e.preventDefault();

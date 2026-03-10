@@ -333,21 +333,33 @@ return (
             }
           ].map((action, index) => (
             <motion.div
-              key={index}
+              key={action.testId}
               variants={fadeInUp}
               whileHover={{ y: -5, scale: 1.02 }}
+              style={{ position: 'relative', zIndex: 1 }}
             >
               <Card 
-                className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all"
-                  onClick={(e) => {
+                className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all touch-manipulation"
+                onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
+                  console.log('Card clicked:', action.path);
+                  navigate(action.path);
+                }}
+                onTouchEnd={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Card touch end:', action.path);
                   navigate(action.path);
                 }}
                 data-testid={action.testId}
+                style={{ position: 'relative', touchAction: 'manipulation' }}
               >
-                <div className={`absolute inset-0 bg-gradient-to-br from-${action.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
-                <div className="relative p-6">
+                <div 
+                  className={`absolute inset-0 bg-gradient-to-br from-${action.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none`}
+                  style={{ pointerEvents: 'none' }}
+                />
+                <div className="relative p-6 pointer-events-none">
                   <div className={`w-12 h-12 rounded-xl bg-${action.color}-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
                     <action.icon className={`w-6 h-6 text-${action.color}-400`} />
                   </div>

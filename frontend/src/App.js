@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import '@/App.css';
 
@@ -28,6 +28,12 @@ import ProductDetailPage from './pages/ProductDetailPage';
 // import UserLanding from './pages/UserLanding';
 import AdminSupportPage from './pages/AdminSupportPage';
 import AdminReviewsPage from './pages/AdminReviewsPage';
+
+// Route key wrapper to force component re-render on path change
+function RouteWrapper({ children }) {
+  const location = useLocation();
+  return <div key={location.pathname}>{children}</div>;
+}
 
 // Protected Route Component for Admin
 function AdminRoute({ children }) {
@@ -126,6 +132,7 @@ function PublicRoute({ children }) {
 function App() {
   return (
     <BrowserRouter>
+    <RouteWrapper>
       <Toaster position="top-right" richColors />
       <Routes>
         {/* Public Routes */}
@@ -214,7 +221,7 @@ function App() {
         <Route
           path="/admin/gym-settings"
           element={
-            <AdminRoute>
+          <AdminRoute>
               <GymSettingsPage />
             </AdminRoute>
           }
@@ -317,6 +324,7 @@ function App() {
         <Route path="/dashboard" element={<Navigate to="/login" replace />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+       </RouteWrapper>
     </BrowserRouter>
   );
 }
