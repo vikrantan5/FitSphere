@@ -15,6 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { UserLayout } from '@/components/user/UserLayout';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -144,7 +145,8 @@ export default function UserDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-purple-950/30 flex items-center justify-center">
+      <UserLayout activePath="/user/dashboard" hidePageHeader>
+        <div className="min-h-[60vh] flex items-center justify-center">
         <div className="text-center">
           <motion.div
             animate={{ rotate: 360 }}
@@ -160,173 +162,35 @@ export default function UserDashboard() {
           </motion.p>
         </div>
       </div>
+      </UserLayout>
     );
   }
 
   if (!user) return null;
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-purple-950/30 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full blur-3xl animate-pulse delay-2000" />
-      </div>
-
-      {/* Top Navigation */}
-      <nav className="relative bg-zinc-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            {/* Logo */}
-            <motion.div 
-              initial={{ x: -20, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              className="flex items-center space-x-3 cursor-pointer group"
-              onClick={() => navigate('/')}
-            >
-              <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                  <Dumbbell className="w-6 h-6 text-white" />
-                </div>
-                <motion.div 
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900"
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  FitSphere
-                </h1>
-                <p className="text-xs text-zinc-400">Enterprise Dashboard</p>
-              </div>
-            </motion.div>
-
-            {/* Right Section */}
-            <div className="flex items-center space-x-4">
-              {/* Notifications */}
-              <div className="relative">
-                <motion.button 
-                  whileHover={{ scale: 1.1 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="relative p-2 hover:bg-white/10 rounded-xl transition-all"
-                  onClick={() => setShowNotifications(!showNotifications)}
-                >
-                  <Bell className="w-5 h-5 text-zinc-300" />
-                  {unreadCount > 0 && (
-                    <motion.span 
-                      initial={{ scale: 0 }}
-                      animate={{ scale: 1 }}
-                      className="absolute top-1 right-1 w-4 h-4 bg-cyan-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
-                    >
-                      {unreadCount}
-                    </motion.span>
-                  )}
-                </motion.button>
-
-                {/* Notifications Dropdown */}
-                <AnimatePresence>
-                  {showNotifications && (
-                    <motion.div 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="absolute right-0 mt-2 w-80 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
-                    >
-                      <div className="p-4 border-b border-white/10">
-                        <h3 className="font-semibold text-white">Notifications</h3>
-                      </div>
-                      <div className="max-h-96 overflow-y-auto">
-                        {notifications.map((notif) => (
-                          <motion.div
-                            key={notif.id}
-                            whileHover={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
-                            className={`p-4 cursor-pointer ${!notif.read ? 'bg-white/5' : ''}`}
-                            onClick={() => markNotificationAsRead(notif.id)}
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`p-2 rounded-xl ${
-                                notif.type === 'order' ? 'bg-blue-500/20' :
-                                notif.type === 'video' ? 'bg-purple-500/20' : 'bg-amber-500/20'
-                              }`}>
-                                {notif.type === 'order' && <Package className="w-4 h-4 text-blue-300" />}
-                                {notif.type === 'video' && <PlayCircle className="w-4 h-4 text-purple-300" />}
-                                {notif.type === 'booking' && <Calendar className="w-4 h-4 text-amber-300" />}
-                              </div>
-                              <div className="flex-1">
-                                <p className="text-sm text-zinc-200">{notif.message}</p>
-                                <p className="text-xs text-zinc-500 mt-1">2 min ago</p>
-                              </div>
-                              {!notif.read && (
-                                <div className="w-2 h-2 bg-cyan-500 rounded-full" />
-                              )}
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
-
-              {/* User Menu */}
-              <motion.div whileHover={{ scale: 1.05 }} className="relative group">
-                <Button
-                  variant="ghost"
-                  className="flex items-center gap-3 px-3 py-2 hover:bg-white/10 rounded-xl"
-                >
-                  <Avatar className="w-8 h-8 ring-2 ring-cyan-500/50">
-                    <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="hidden md:block text-left">
-                    <p className="text-sm font-medium text-white">{user.name}</p>
-                    <p className="text-xs text-zinc-400">Premium Member</p>
-                  </div>
-                </Button>
-
-                {/* Dropdown Menu */}
-                <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
-                  <div className="p-2">
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
-                      <User className="w-4 h-4" />
-                      Profile
-                    </button>
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
-                      <Settings className="w-4 h-4" />
-                      Settings
-                    </button>
-                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
-                      <HelpCircle className="w-4 h-4" />
-                      Help
-                    </button>
-                    <div className="border-t border-white/10 my-2" />
-                    <button 
-                      onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              </motion.div>
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* Main Content */}
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
+return (
+    <UserLayout 
+      activePath="/user/dashboard" 
+      hidePageHeader
+      actions={
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          className="border-white/10 bg-white/5 text-white hover:bg-white/10"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      }
+    >
+      <div className="space-y-8">
         {/* Welcome Section */}
         <motion.div
           variants={fadeInUp}
           initial="initial"
           animate="animate"
         >
-          <Card className="relative overflow-hidden bg-gradient-to-br from-zinc-900/90 via-zinc-900/80 to-zinc-900/90 border border-white/10 backdrop-blur-xl mb-8">
+            <Card className="saas-glass-card relative overflow-hidden border border-white/10 backdrop-blur-xl mb-8">
             <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10" />
             <div className="relative p-8">
               <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -464,7 +328,7 @@ export default function UserDashboard() {
               title: 'Need Support',
               description: 'Chat with us',
               color: 'amber',
-              path: '/user/support',
+              path: '/user/chat',
               testId: 'support-card'
             }
           ].map((action, index) => (
@@ -501,7 +365,7 @@ export default function UserDashboard() {
           initial="initial"
           animate="animate"
         >
-          <Card className="bg-zinc-900/90 border border-white/10 backdrop-blur-xl">
+         <Card className="saas-glass-card border border-white/10 backdrop-blur-xl">
             <Tabs defaultValue="orders" className="p-6">
               <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-800/50 p-1 rounded-xl">
                 <TabsTrigger 
@@ -760,6 +624,6 @@ export default function UserDashboard() {
           </Badge>
         </motion.div>
       </div>
-    </div>
+   </UserLayout>
   );
 }

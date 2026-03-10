@@ -25,7 +25,7 @@ import UserCartPage from './pages/UserCartPage';
 import UserChatPage from './pages/UserChatPage';
 import UserTestimonialsPage from './pages/UserTestimonialsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
-import UserLanding from './pages/UserLanding';
+// import UserLanding from './pages/UserLanding';
 import AdminSupportPage from './pages/AdminSupportPage';
 import AdminReviewsPage from './pages/AdminReviewsPage';
 

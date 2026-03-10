@@ -21,6 +21,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
+import { UserLayout } from '@/components/user/UserLayout';
 
 export default function UserVideosPage() {
   const navigate = useNavigate();
@@ -203,103 +204,31 @@ export default function UserVideosPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-purple-950/30 relative overflow-hidden">
-      {/* Animated Background */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
-        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full blur-3xl animate-pulse delay-2000" />
-      </div>
-
-      {/* Header */}
-      <motion.nav 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        className="relative bg-zinc-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50"
-      >
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <motion.div 
+    <UserLayout
+      activePath="/user/videos"
+      title="Workout Video Library"
+      subtitle="Expert-led tutorials for all fitness levels with real-time progress tracking"
+    >
+      <div className="space-y-8">
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Videos', value: stats.totalVideos, icon: Video },
+            { label: 'Watch Time', value: `${stats.totalWatchTime}h`, icon: Clock },
+            { label: 'Completed', value: stats.completedVideos, icon: CheckCircle },
+            { label: 'Favorites', value: favorites.length, icon: Heart }
+          ].map((stat, index) => (
+            <motion.div
+              key={index}
               whileHover={{ scale: 1.05 }}
-              className="flex items-center space-x-3 cursor-pointer group"
-              onClick={() => navigate('/')}
+              className="saas-glass-card p-4 border border-white/10"
             >
-              <div className="relative">
-                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-cyan-500/20 group-hover:scale-105 transition-transform">
-                  <Dumbbell className="w-6 h-6 text-white" />
-                </div>
-                <motion.div 
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900"
-                />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-                  FitSphere
-                </h1>
-                <p className="text-xs text-zinc-400">Video Library</p>
-              </div>
+              <stat.icon className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
+              <p className="text-xl font-bold text-white">{stat.value}</p>
+              <p className="text-xs text-zinc-400">{stat.label}</p>
             </motion.div>
-
-            <div className="flex items-center space-x-4">
-              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button 
-                  onClick={() => navigate('/user/dashboard')}
-                  variant="outline"
-                  className="border-white/10 bg-white/5 text-white hover:bg-white/10"
-                >
-                  <ArrowLeft className="w-4 h-4 mr-2" />
-                  Dashboard
-                </Button>
-              </motion.div>
-            </div>
-          </div>
+          ))}
         </div>
-      </motion.nav>
-
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
-        {/* Page Header with Stats */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
-        >
-          <Badge className="mb-4 bg-cyan-500/20 text-cyan-300 border-cyan-500/30 px-4 py-2">
-            <Sparkles className="w-4 h-4 mr-2" />
-            Premium Fitness Library
-          </Badge>
-          <h1 className="text-5xl md:text-6xl font-bold mb-4">
-            <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Workout Video
-            </span>
-            <br />
-            <span className="text-white">Library</span>
-          </h1>
-          <p className="text-xl text-zinc-300 max-w-3xl mx-auto">
-            Expert-led tutorials for all fitness levels with real-time progress tracking
-          </p>
-
-          {/* Quick Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto mt-8">
-            {[
-              { label: 'Total Videos', value: stats.totalVideos, icon: Video },
-              { label: 'Watch Time', value: `${stats.totalWatchTime}h`, icon: Clock },
-              { label: 'Completed', value: stats.completedVideos, icon: CheckCircle },
-              { label: 'Favorites', value: favorites.length, icon: Heart }
-            ].map((stat, index) => (
-              <motion.div
-                key={index}
-                whileHover={{ scale: 1.05 }}
-                className="bg-white/5 rounded-xl p-4 border border-white/10"
-              >
-                <stat.icon className="w-5 h-5 text-cyan-400 mx-auto mb-2" />
-                <p className="text-xl font-bold text-white">{stat.value}</p>
-                <p className="text-xs text-zinc-400">{stat.label}</p>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
 
         {/* Filters Section */}
         <motion.div
@@ -307,7 +236,7 @@ export default function UserVideosPage() {
           initial="initial"
           animate="animate"
         >
-          <Card className="bg-zinc-900/90 border border-white/10 backdrop-blur-xl mb-8">
+           <Card className="saas-glass-card border border-white/10 backdrop-blur-xl mb-8">
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
@@ -892,6 +821,6 @@ export default function UserVideosPage() {
           )}
         </DialogContent>
       </Dialog>
-    </div>
+    </UserLayout>
   );
 }

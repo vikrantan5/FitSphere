@@ -572,8 +572,7 @@ export default function UserSessionsPage() {
         )}
       </div>
 
-     </UserLayout>
-  );
+    {/* Booking Modal */}
 
   
       <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
