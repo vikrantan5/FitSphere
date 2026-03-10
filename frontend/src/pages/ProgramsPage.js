@@ -21,6 +21,9 @@ export default function ProgramsPage() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingProgram, setEditingProgram] = useState(null);
+   const [uploadingImage, setUploadingImage] = useState(false);
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -75,6 +78,51 @@ export default function ProgramsPage() {
     }
   };
 
+
+  const handleImageFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      setImageFile(file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!imageFile) return null;
+    
+    setUploadingImage(true);
+    const formData = new FormData();
+    formData.append('file', imageFile);
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API}/programs/upload-image`, formData, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      
+      toast.success('Image uploaded successfully!');
+      return response.data.cdn_url;
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image');
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -84,17 +132,25 @@ export default function ProgramsPage() {
       toast.error('Please select at least one attendance option (Gym or Home Visit)');
       return;
     }
-    
-    // Validate image URL if provided (allow both http and https, or empty)
-    if (formData.image_url && formData.image_url.trim() !== '' && !isValidImageUrl(formData.image_url)) {
-      toast.error('Please enter a valid image URL (must start with http:// or https://)');
-      return;
-    }
 
     try {
+      // Upload image if new file is selected
+      let imageUrl = formData.image_url;
+      if (imageFile) {
+        const uploadedUrl = await uploadImage();
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          // If image upload failed, ask user if they want to continue
+          if (!window.confirm('Image upload failed. Continue without image?')) {
+            return;
+          }
+        }
+      }
+
       const payload = {
         ...formData,
-        image_url: formData.image_url.trim() || undefined, // Send undefined if empty
+        image_url: imageUrl || undefined,
         duration_weeks: parseInt(formData.duration_weeks),
         price: parseFloat(formData.price),
         sessions_per_week: parseInt(formData.sessions_per_week),
@@ -122,10 +178,7 @@ export default function ProgramsPage() {
     }
   };
 
-  const isValidImageUrl = (url) => {
-    // Allow both http:// and https://
-    return url.startsWith('http://') || url.startsWith('https://');
-  };
+
 
   const handleEdit = (program) => {
     setEditingProgram(program);
@@ -144,6 +197,10 @@ export default function ProgramsPage() {
       supports_home_visit: program.supports_home_visit || false,
       home_visit_additional_charge: program.home_visit_additional_charge || 0
     });
+    // Set existing image as preview
+    if (program.image_url) {
+      setImagePreview(program.image_url);
+    }
     setShowModal(true);
   };
 
@@ -180,6 +237,8 @@ export default function ProgramsPage() {
       home_visit_additional_charge: 0
     });
     setEditingProgram(null);
+     setImageFile(null);
+    setImagePreview(null);
   };
 
   const handleOpenModal = () => {
@@ -507,60 +566,52 @@ export default function ProgramsPage() {
                   )}
                 </div>
               </div>
-
-              {/* Image URL Input */}
+              {/* Image Upload Input */}
               <div>
-                <Label htmlFor="image_url" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Image URL (Optional)</Label>
+                <Label htmlFor="image_file" className="text-sm uppercase tracking-wider text-[#5a5a5a]">Program Image</Label>
                 <Input
-                  id="image_url"
-                  type="text"
-                  placeholder="https://example.com/image.jpg or http://example.com/image.jpg"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  id="image_file"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageFileChange}
                   className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
-                  data-testid="program-image-url-input"
+                  data-testid="program-image-file-input"
                 />
-                                <p className="text-xs text-[#5a5a5a] mt-2">
-                  💡 Tip: For best results, use direct image URLs from CDNs or image hosting services. Google Images may not work due to CORS restrictions.
+                <p className="text-xs text-[#5a5a5a] mt-2">
+                  💡 Upload an image for the program. Recommended size: 800x600px or higher.
                 </p>
-                {formData.image_url && formData.image_url.trim() !== '' && (
+                {imagePreview && (
                   <div className="mt-3">
                     <p className="text-xs text-[#5a5a5a] mb-2">Preview:</p>
-                    <div className="w-full h-40 border border-stone-300 rounded-none overflow-hidden bg-[#fdfbf7] relative">
+                    <div className="w-full h-48 border border-stone-300 rounded-none overflow-hidden bg-[#fdfbf7] relative">
                       <img 
-                        src={formData.image_url} 
+                        src={imagePreview} 
                         alt="Preview"
                         className="w-full h-full object-cover"
-                        crossOrigin="anonymous"
-                        onError={(e) => {
-                          console.error('Image preview failed:', formData.image_url);
-                          e.target.style.display = 'none';
-                        }}
                       />
-                      <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm bg-red-50" style={{ display: 'none' }} id="preview-error">
-                        ⚠️ Unable to load image preview. The URL might be invalid or have CORS restrictions.
-                      </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="flex gap-4 pt-4">
+               <div className="flex gap-4 pt-4">
                 <Button
                   type="button"
                   onClick={() => setShowModal(false)}
                   variant="outline"
                   className="flex-1 border-stone-300 text-[#5a5a5a] hover:bg-stone-100 rounded-full py-6 uppercase tracking-wider"
                   data-testid="cancel-button"
+                  disabled={uploadingImage}
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-wider font-semibold"
+                  className="flex-1 bg-gradient-to-r from-[#ff7f50] to-[#8b5cf6] hover:opacity-90 text-white rounded-full py-6 uppercase tracking-wider font-semibold disabled:opacity-50"
                   data-testid="submit-program-button"
+                  disabled={uploadingImage}
                 >
-                  {editingProgram ? 'Update Program' : 'Create Program'}
+                  {uploadingImage ? 'Uploading Image...' : editingProgram ? 'Update Program' : 'Create Program'}
                 </Button>
               </div>
             </form>
