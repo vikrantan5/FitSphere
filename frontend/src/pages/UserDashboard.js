@@ -339,7 +339,11 @@ return (
             >
               <Card 
                 className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all"
-                onClick={() => navigate(action.path)}
+                  onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  navigate(action.path);
+                }}
                 data-testid={action.testId}
               >
                 <div className={`absolute inset-0 bg-gradient-to-br from-${action.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />

@@ -63,8 +63,7 @@ export default function GymSettingsPage() {
       return;
     }
     loadSettings();
- }, []); // Only run once on mount
-
+}, [navigate, loadSettings]); // Added dependencies
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -82,7 +81,9 @@ export default function GymSettingsPage() {
       });
       
       toast.success('Gym settings saved successfully');
-      loadSettings();
+      // Don't call loadSettings here to avoid infinite loop
+      // Just update the settings state
+      setSettings(formData);
     } catch (error) {
       console.error('Save error:', error);
       toast.error(error.response?.data?.detail || 'Failed to save settings');

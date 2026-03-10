@@ -16,7 +16,7 @@ export const initializeSocket = (userId, userName, userRole) => {
 
   socket.on('connect', () => {
     console.log('Socket connected:', socket.id);
-    socket.emit('join_room', { user_id: userId });
+    socket.emit('join_room', { user_id: userId, user_role: userRole });
   });
 
   socket.on('disconnect', () => {

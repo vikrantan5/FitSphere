@@ -6,6 +6,7 @@ import { MessageSquare, User, Clock, Send, Search } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { initializeSocket, sendMessage, onNewMessage, disconnectSocket } from '../utils/socket';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -18,9 +19,27 @@ export default function AdminSupportPage() {
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [users, setUsers] = useState({});
+  const [admin, setAdmin] = useState(null);
 
   useEffect(() => {
+      // Get admin data and initialize socket
+    const adminData = JSON.parse(localStorage.getItem('user') || '{}');
+    setAdmin(adminData);
+    
+    if (adminData.id) {
+      // Initialize socket for admin
+      initializeSocket(adminData.id, adminData.name || 'Admin', 'admin');
+      
+      // Listen for new messages
+      onNewMessage((message) => {
+        setMessages(prev => [...prev, message]);
+        fetchMessages(); // Refresh to get updated list
+      });
+    }
     fetchMessages();
+      return () => {
+      disconnectSocket();
+    };
   }, []);
 
   useEffect(() => {
@@ -73,27 +92,22 @@ export default function AdminSupportPage() {
       return;
     }
 
+     if (!admin || !admin.id) {
+      toast.error('Admin not authenticated');
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
-      const admin = JSON.parse(localStorage.getItem('user') || '{}');
-      
-      // Use Socket.IO or REST API to send message
-      // For now, we'll use REST API
-      const payload = {
-        sender_id: admin.id,
-        sender_name: admin.name || 'Admin',
-        sender_role: 'admin',
-        receiver_id: receiverId,
-        message: replyText
-      };
+      // Send via Socket.IO
+      sendMessage(replyText, admin.id, admin.name || 'Admin', 'admin', receiverId);
 
-      await axios.post(`${API}/chat/send`, payload, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      toast.success('Reply sent successfully');
+     toast.success('Reply sent successfully');
       setReplyText('');
-      fetchMessages();
+      
+      // Refresh messages after a short delay
+      setTimeout(() => {
+        fetchMessages();
+      }, 500);
     } catch (error) {
       console.error('Failed to send reply:', error);
       toast.error('Failed to send reply');

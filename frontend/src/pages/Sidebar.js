@@ -44,8 +44,8 @@ export default function Sidebar() {
   ];
 
   return (
-    <div className="w-64 bg-gradient-to-b from-[#0f5132] to-[#0a3d25] text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl">
-      <div className="p-6 border-b border-emerald-700/50">
+      <div className="w-64 bg-gradient-to-b from-[#0f5132] to-[#0a3d25] text-white h-screen fixed left-0 top-0 flex flex-col shadow-2xl overflow-hidden">
+      <div className="p-6 border-b border-emerald-700/50 flex-shrink-0">
         <div className="flex items-center gap-3 mb-2">
           <div className="w-10 h-10 bg-gradient-to-br from-[#ff7f50] to-[#8b5cf6] rounded-full flex items-center justify-center">
             <Dumbbell className="w-6 h-6 text-white" />
@@ -57,7 +57,7 @@ export default function Sidebar() {
         <p className="text-sm text-emerald-200 uppercase tracking-wider">Admin Panel</p>
       </div>
 
-     <nav className="flex-1 px-4 py-6 overflow-y-auto">
+     <nav className="flex-1 px-4 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-700 scrollbar-track-emerald-900/20">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
@@ -79,7 +79,7 @@ export default function Sidebar() {
         })}
       </nav>
 
-      <div className="p-4 border-t border-emerald-700/50">
+     <div className="p-4 border-t border-emerald-700/50 flex-shrink-0">
         <div className="mb-4 px-4">
           <p className="text-xs text-emerald-200 uppercase tracking-wider">Logged in as</p>
           <p className="font-semibold truncate mt-1">{admin?.name || admin?.email || 'Admin'}</p>

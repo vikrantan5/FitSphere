@@ -253,10 +253,16 @@ async def disconnect(sid):
 async def join_room(sid, data):
     """User joins their personal room"""
     user_id = data.get('user_id')
+    user_role = data.get('user_role', 'user')
     if user_id:
         active_connections[sid] = user_id
         await sio.enter_room(sid, f"user_{user_id}")
-        logger.info(f"User {user_id} joined room")
+        logger.info(f"User {user_id} joined room user_{user_id}")
+        
+        # If admin, also join admin_room
+        if user_role == 'admin':
+            await sio.enter_room(sid, 'admin_room')
+            logger.info(f"Admin {user_id} joined admin_room")
 
 @sio.event
 async def send_message(sid, data):
