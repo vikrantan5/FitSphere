@@ -306,11 +306,15 @@ export default function UserDashboard() {
                           <p className="text-gray-500">Customer Name</p>
                           <p className="font-medium">{order.customer_name}</p>
                         </div>
+                          <div>
+                          <p className="text-gray-500">Email</p>
+                          <p className="font-medium">{order.customer_email}</p>
+                        </div>
                         <div>
                           <p className="text-gray-500">Phone</p>
                           <p className="font-medium">{order.customer_phone}</p>
                         </div>
-                        <div className="col-span-2">
+                        <div >
                           <p className="text-gray-500">Shipping Address</p>
                           <p className="font-medium">{order.shipping_address}</p>
                         </div>

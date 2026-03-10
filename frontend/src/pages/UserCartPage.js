@@ -114,14 +114,14 @@ export default function UserCartPage() {
     }
 
     // Basic email validation
-    const emailRegex = /^[^s@]+@[^s@]+.[^s@]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(customerInfo.email)) {
       toast.error('Please enter a valid email address');
       return;
     }
 
     // Basic phone validation
-    const phoneRegex = /^[0-9+-s]{10,15}$/;
+    const phoneRegex = /^[0-9+\-\s]{10,15}$/;
     if (!phoneRegex.test(customerInfo.phone)) {
       toast.error('Please enter a valid phone number');
       return;
