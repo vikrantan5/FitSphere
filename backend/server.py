@@ -502,7 +502,15 @@ async def get_public_videos(
 async def get_video(video_id: str):
     """Get single video by ID"""
     try:
-        video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+        video = await db.videos.find_one(
+            {
+                "$or": [
+                    {"id": video_id},
+                    {"video_id": video_id}
+                ]
+            },
+            {"_id": 0}
+        )
         if not video:
             raise HTTPException(status_code=404, detail="Video not found")
         

@@ -61,7 +61,12 @@ export default function UserVideosPage() {
   };
 
   const openVideo = (video) => {
-    navigate(`/user/videos/watch/${video.id}`);
+     const targetVideoId = video?.id || video?.video_id;
+    if (!targetVideoId) {
+      toast.error('Video is not available right now');
+      return;
+    }
+    navigate(`/user/videos/watch/${targetVideoId}`);
   };
 
   const categories = ['all', 'yoga', 'cardio', 'strength', 'pilates', 'dance', 'meditation'];
@@ -148,10 +153,10 @@ export default function UserVideosPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="videos-grid">
             {filteredVideos.map((video) => (
               <Card
-                key={video.id}
+                key={video.id || video.video_id}
                 onClick={() => openVideo(video)}
                 className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer"
-                data-testid="video-card"
+                data-testid={`video-card-${video.id || video.video_id || 'unknown'}`}
               >
                 <div className="relative h-48 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center group">
                   <Play className="h-16 w-16 text-white group-hover:scale-110 transition-transform" />

@@ -39,7 +39,16 @@ export default function VideoPlayerPage() {
   const loadVideo = async () => {
     try {
       setLoading(true);
-      const response = await videoAPI.getById(videoId);
+       if (!videoId || videoId === 'undefined' || videoId === 'null') {
+        throw new Error('Invalid video id');
+      }
+
+      const videoFetcher = videoAPI.getById || videoAPI.getOne;
+      if (!videoFetcher) {
+        throw new Error('Video API method not available');
+      }
+
+      const response = await videoFetcher(videoId);
       setVideo(response.data);
       
       // Initialize video player after video data is loaded
@@ -318,11 +327,11 @@ export default function VideoPlayerPage() {
               <h2 className="text-xl font-bold mb-4">Recommended Videos</h2>
               <div className="space-y-4" data-testid="recommendations-list">
                 {recommendations.map((recVideo) => (
-                  <div
-                    key={recVideo.id}
-                    onClick={() => navigate(`/user/videos/watch/${recVideo.id}`)}
+                   <div
+                    key={recVideo.id || recVideo.video_id}
+                    onClick={() => navigate(`/user/videos/watch/${recVideo.id || recVideo.video_id}`)}
                     className="flex gap-3 cursor-pointer hover:bg-gray-50 p-2 rounded-lg transition-all group"
-                    data-testid="recommendation-item"
+                    data-testid={`recommendation-item-${recVideo.id || recVideo.video_id || 'unknown'}`}
                   >
                     <div className="relative w-40 h-24 flex-shrink-0 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 rounded-lg overflow-hidden">
                       {recVideo.thumbnail_url ? (
