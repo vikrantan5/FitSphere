@@ -53,7 +53,7 @@ export default function GymSettingsPage() {
     }
   }, []); // Empty dependency array since it doesn't depend on any props/state
 
-  // Fix useEffect by adding navigate to dependency array
+ 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userRole = localStorage.getItem('userRole');
@@ -63,7 +63,7 @@ export default function GymSettingsPage() {
       return;
     }
     loadSettings();
-  }, [navigate, loadSettings]); // Add navigate and loadSettings to dependency array
+ }, []); // Only run once on mount
 
   const handleSubmit = async (e) => {
     e.preventDefault();

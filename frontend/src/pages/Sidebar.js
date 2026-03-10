@@ -57,7 +57,7 @@ export default function Sidebar() {
         <p className="text-sm text-emerald-200 uppercase tracking-wider">Admin Panel</p>
       </div>
 
-      <nav className="flex-1 px-4 py-6">
+     <nav className="flex-1 px-4 py-6 overflow-y-auto">
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;

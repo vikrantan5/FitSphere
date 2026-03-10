@@ -359,11 +359,11 @@ export default function UserSessionsPage() {
       <div className="space-y-8">
        
 
-       {/* My Bookings Section */}
+      {/* My Bookings Section */}
 {myBookings.length > 0 && (
-  <Card className="saas-glass-card p-6 mb-8">
-    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-      <Calendar className="h-6 w-6 text-purple-600" />
+  <Card className="bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 p-6 mb-8">
+    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2 text-white">
+      <Calendar className="h-6 w-6 text-cyan-400" />
       My Bookings
     </h2>
 
@@ -371,34 +371,36 @@ export default function UserSessionsPage() {
       {myBookings.map((booking) => (
         <Card
           key={booking.id}
-          className="p-4"
+          className="group overflow-hidden bg-gradient-to-br from-zinc-800 to-zinc-900 border border-white/10 hover:border-cyan-400/30 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/10 p-4"
           data-testid="my-booking-card"
         >
-          <div className="space-y-2">
-            <h3 className="font-semibold">{booking.program_title}</h3>
+          <div className="space-y-3">
+            <h3 className="font-semibold text-lg text-white group-hover:text-cyan-400 transition-colors">
+              {booking.program_title}
+            </h3>
 
-            <p className="text-sm text-gray-600">
-              Trainer: {booking.trainer_name}
+            <p className="text-sm text-zinc-300">
+              Trainer: <span className="text-purple-400 font-medium">{booking.trainer_name}</span>
             </p>
 
-            <p className="text-sm text-gray-600">
-              <Clock className="inline h-4 w-4 mr-1" />
-              {booking.booking_date} at {booking.time_slot}
+            <p className="text-sm text-zinc-300 flex items-center gap-2">
+              <Clock className="h-4 w-4 text-cyan-400" />
+              <span>{booking.booking_date} at {booking.time_slot}</span>
             </p>
 
             {/* Attendance Mode */}
-            <div className="flex items-center gap-1 text-sm">
+            <div className="flex items-center gap-2 text-sm">
               {booking.attendance_type === "gym" ? (
                 <>
-                  <Dumbbell className="h-4 w-4 text-emerald-600" />
-                  <span className="text-emerald-600 font-medium">
+                  <Dumbbell className="h-4 w-4 text-emerald-400" />
+                  <span className="text-emerald-400 font-medium">
                     At Gym
                   </span>
                 </>
               ) : (
                 <>
-                  <Home className="h-4 w-4 text-purple-600" />
-                  <span className="text-purple-600 font-medium">
+                  <Home className="h-4 w-4 text-purple-400" />
+                  <span className="text-purple-400 font-medium">
                     Home Visit
                   </span>
                 </>
@@ -408,7 +410,7 @@ export default function UserSessionsPage() {
             {/* Location */}
             {booking.attendance_type === "gym" &&
               booking.gym_location && (
-                <div className="mt-2">
+                <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border border-emerald-500/20">
                   <LocationDisplay
                     location={booking.gym_location}
                     title="Gym Location"
@@ -418,7 +420,7 @@ export default function UserSessionsPage() {
 
             {booking.attendance_type === "home_visit" &&
               booking.user_location && (
-                <div className="mt-2">
+                <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border border-purple-500/20">
                   <LocationDisplay
                     location={booking.user_location}
                     title="Your Location"
@@ -429,7 +431,7 @@ export default function UserSessionsPage() {
             {/* Status */}
             <div className="flex gap-2 flex-wrap">
               <span
-                className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
+                className={`px-3 py-1 text-xs rounded-full font-medium ${getStatusColor(
                   booking.status
                 )}`}
               >
@@ -437,10 +439,10 @@ export default function UserSessionsPage() {
               </span>
 
               <span
-                className={`px-2 py-1 text-xs rounded-full ${
+                className={`px-3 py-1 text-xs rounded-full font-medium ${
                   booking.payment_status === "success"
-                    ? "bg-green-100 text-green-700"
-                    : "bg-yellow-100 text-yellow-700"
+                    ? "bg-green-500/20 text-green-300 border border-green-500/30"
+                    : "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
                 }`}
               >
                 {booking.payment_status === "success"
@@ -449,7 +451,7 @@ export default function UserSessionsPage() {
               </span>
             </div>
 
-            <p className="text-sm font-semibold text-purple-600">
+            <p className="text-lg font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
               ₹{booking.amount}
             </p>
 
@@ -460,7 +462,7 @@ export default function UserSessionsPage() {
                   onClick={() => handlePayForBooking(booking)}
                   disabled={payingBookingId === booking.id}
                   size="sm"
-                  className="w-full mt-2 bg-gradient-to-r from-purple-600 to-pink-600"
+                  className="w-full mt-2 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all"
                   data-testid="pay-now-btn"
                 >
                   {payingBookingId === booking.id

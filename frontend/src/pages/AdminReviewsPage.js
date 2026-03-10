@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Star, User, Clock, CheckCircle, XCircle, Search } from 'lucide-react';
+import { Star, User, Clock, CheckCircle, XCircle, Search, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -91,6 +91,26 @@ export default function AdminReviewsPage() {
     } catch (error) {
       console.error('Failed to reject review:', error);
       toast.error('Failed to reject review');
+    }
+  };
+
+  const handleDelete = async (testimonialId) => {
+    if (!window.confirm('Are you sure you want to delete this review? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const config = {
+        headers: { Authorization: `Bearer ${token}` }
+      };
+
+      await axios.delete(`${API}/testimonials/${testimonialId}`, config);
+      toast.success('Review deleted successfully');
+      fetchTestimonials();
+    } catch (error) {
+      console.error('Failed to delete review:', error);
+      toast.error('Failed to delete review');
     }
   };
 
@@ -265,30 +285,42 @@ export default function AdminReviewsPage() {
                       )}
                     </div>
 
-                    {/* Action Buttons */}
-                    {testimonial.approval_status === 'pending' && (
-                      <div className="flex gap-2 mt-4">
-                        <Button
-                          onClick={() => handleApprove(testimonial.id)}
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700"
-                          data-testid={`approve-btn-${testimonial.id}`}
-                        >
-                          <CheckCircle className="w-4 h-4 mr-1" />
-                          Approve
-                        </Button>
-                        <Button
-                          onClick={() => handleReject(testimonial.id)}
-                          size="sm"
-                          variant="outline"
-                          className="border-red-300 text-red-600 hover:bg-red-50"
-                          data-testid={`reject-btn-${testimonial.id}`}
-                        >
-                          <XCircle className="w-4 h-4 mr-1" />
-                          Reject
-                        </Button>
-                      </div>
-                    )}
+                                       {/* Action Buttons */}
+                    <div className="flex gap-2 mt-4">
+                      {testimonial.approval_status === 'pending' && (
+                        <>
+                          <Button
+                            onClick={() => handleApprove(testimonial.id)}
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700"
+                            data-testid={`approve-btn-${testimonial.id}`}
+                          >
+                            <CheckCircle className="w-4 h-4 mr-1" />
+                            Approve
+                          </Button>
+                          <Button
+                            onClick={() => handleReject(testimonial.id)}
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-600 hover:bg-red-50"
+                            data-testid={`reject-btn-${testimonial.id}`}
+                          >
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Reject
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        onClick={() => handleDelete(testimonial.id)}
+                        size="sm"
+                        variant="outline"
+                        className="border-red-500 text-red-600 hover:bg-red-600 hover:text-white ml-auto"
+                        data-testid={`delete-btn-${testimonial.id}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </Card>

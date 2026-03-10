@@ -1747,6 +1747,44 @@ async def mark_message_read(message_id: str, user: dict = Depends(get_current_us
         raise HTTPException(status_code=404, detail="Message not found")
     
     return {"message": "Message marked as read"}
+@api_router.post("/chat/send", response_model=ChatMessage)
+async def send_chat_message(
+    sender_id: str = Form(...),
+    sender_name: str = Form(...),
+    sender_role: str = Form(...),
+    receiver_id: Optional[str] = Form(None),
+    message: str = Form(...)
+):
+    """Send chat message via REST API"""
+    try:
+        # Create message
+        chat_message = ChatMessage(
+            sender_id=sender_id,
+            sender_name=sender_name,
+            sender_role=UserRole(sender_role),
+            receiver_id=receiver_id,
+            message=message
+        )
+        
+        message_dict = chat_message.model_dump()
+        message_dict['created_at'] = message_dict['created_at'].isoformat()
+        
+        await db.chat_messages.insert_one(message_dict)
+        
+        # Emit via socket if available
+        try:
+            if receiver_id:
+                await sio.emit('new_message', message_dict, room=f"user_{receiver_id}")
+            else:
+                await sio.emit('new_message', message_dict, room='admin_room')
+        except Exception as e:
+            logger.warning(f"Could not emit socket event: {str(e)}")
+        
+        return chat_message
+        
+    except Exception as e:
+        logger.error(f"Error sending chat message: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== TESTIMONIAL ENDPOINTS ====================
 
