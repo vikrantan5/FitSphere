@@ -141,6 +141,7 @@ export const bookingAPI = {
   getMyBookings: (params) => api.get('/bookings/user/my-bookings', { params }),
   getOne: (id) => api.get(`/bookings/${id}`),
   updateStatus: (id, data) => api.put(`/bookings/${id}/status`, data),
+    cancel: (id) => api.delete(`/bookings/${id}`),
   getAvailableSlots: (trainerId, date) => api.get(`/bookings/trainer/${trainerId}/available-slots`, {
     params: { booking_date: date }
   }),
