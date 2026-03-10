@@ -158,8 +158,21 @@ export default function UserVideosPage() {
                 className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer"
                 data-testid={`video-card-${video.id || video.video_id || 'unknown'}`}
               >
-                <div className="relative h-48 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 flex items-center justify-center group">
-                  <Play className="h-16 w-16 text-white group-hover:scale-110 transition-transform" />
+                <div className="relative h-48 bg-gradient-to-br from-blue-400 via-purple-400 to-pink-400 overflow-hidden">
+                  {video.thumbnail_url && (
+                    <img
+                      src={video.thumbnail_url}
+                      alt={video.title}
+                       className="absolute inset-0 w-full h-full object-cover"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                   )}
+                  <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-all flex items-center justify-center">
+                    <Play className="h-16 w-16 text-white group-hover:scale-110 transition-transform drop-shadow-lg" />
+                  </div>
                   <div className="absolute top-2 right-2 bg-black/70 text-white px-2 py-1 rounded text-sm flex items-center">
                     <Clock className="h-3 w-3 mr-1" />
                     {Math.floor(video.duration / 60)} min

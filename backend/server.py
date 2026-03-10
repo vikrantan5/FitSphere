@@ -366,6 +366,7 @@ async def get_current_admin_info(admin: dict = Depends(get_current_admin)):
 @api_router.post("/videos/upload", response_model=FileUploadResponse)
 async def upload_video(
     file: UploadFile = File(...),
+    thumbnail: Optional[UploadFile] = File(None),
     title: str = Form(...),
     category: str = Form(...),
     difficulty: str = Form(...),
@@ -374,14 +375,30 @@ async def upload_video(
     is_free: bool = Form(True),
     admin: dict = Depends(get_current_admin)
 ):
-    """Upload video to Bunny Stream"""
+    """Upload video to Bunny Stream with optional custom thumbnail"""
     # Validate file type
     if not file.content_type or not file.content_type.startswith('video/'):
         raise HTTPException(status_code=400, detail="File must be a video")
     
     try:
+         # Upload thumbnail first if provided
+        thumbnail_url = None
+        if thumbnail:
+            if not thumbnail.content_type or not thumbnail.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="Thumbnail must be an image")
+            
+            timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+            safe_filename = f"{timestamp}_{thumbnail.filename.replace(' ', '_')}"
+            destination_path = f"thumbnails/{safe_filename}"
+            
+            upload_result = await upload_to_bunny_storage(thumbnail, destination_path)
+            thumbnail_url = upload_result['cdn_url']
+            logger.info(f"Custom thumbnail uploaded: {thumbnail_url}")
         # Upload to Bunny Stream (not storage)
         upload_result = await upload_video_to_bunny_stream(file, title)
+        
+        # Use custom thumbnail if provided, otherwise use Bunny's auto-generated one
+        final_thumbnail_url = thumbnail_url or upload_result.get('thumbnail_url')
         
         # Save video metadata to database
         video = Video(
@@ -393,7 +410,7 @@ async def upload_video(
             video_url=upload_result['playback_url'],  # Use playback URL for streaming
             embed_url=upload_result['embed_url'],     # Store embed URL separately
             video_id=upload_result['video_id'],       # Store Bunny video ID
-            thumbnail_url=upload_result.get('thumbnail_url'),
+            thumbnail_url=final_thumbnail_url,
             is_free=is_free
         )
         
@@ -750,6 +767,35 @@ async def delete_image(image_id: str, admin: dict = Depends(get_current_admin)):
     await db.images.delete_one({"id": image_id})
     
     return {"message": "Image deleted successfully"}
+
+# ==================== PROGRAM IMAGE UPLOAD ENDPOINT ====================
+
+@api_router.post("/programs/upload-image", response_model=FileUploadResponse)
+async def upload_program_image(
+    file: UploadFile = File(...),
+    admin: dict = Depends(get_current_admin)
+):
+    """Upload program image to Bunny Storage"""
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{file.filename.replace(' ', '_')}"
+    destination_path = f"programs/{safe_filename}"
+    
+    try:
+        upload_result = await upload_to_bunny_storage(file, destination_path)
+        
+        return FileUploadResponse(
+            success=True,
+            file_name=file.filename,
+            file_url=upload_result['cdn_url'],
+            cdn_url=upload_result['cdn_url']
+        )
+    
+    except Exception as e:
+        logger.error(f"Program image upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # ==================== PRODUCT MANAGEMENT ENDPOINTS ====================
 

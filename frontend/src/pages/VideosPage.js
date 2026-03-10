@@ -10,6 +10,7 @@ export default function VideosPage() {
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadData, setUploadData] = useState({
     file: null,
+     thumbnailFile: null,
     title: '',
     category: 'yoga',
     difficulty: 'beginner',
@@ -17,6 +18,7 @@ export default function VideosPage() {
     description: '',
     is_free: true
   });
+  const [thumbnailPreview, setThumbnailPreview] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [processingVideos, setProcessingVideos] = useState(new Map()); // Track encoding status
   const pollingIntervals = useRef(new Map()); // Store interval IDs
@@ -119,6 +121,9 @@ export default function VideosPage() {
     setUploading(true);
     const formData = new FormData();
     formData.append('file', uploadData.file);
+      if (uploadData.thumbnailFile) {
+      formData.append('thumbnail', uploadData.thumbnailFile);
+    }
     formData.append('title', uploadData.title);
     formData.append('category', uploadData.category);
     formData.append('difficulty', uploadData.difficulty);
@@ -132,6 +137,7 @@ export default function VideosPage() {
       setShowUploadModal(false);
       setUploadData({
         file: null,
+        thumbnailFile: null,
         title: '',
         category: 'yoga',
         difficulty: 'beginner',
@@ -139,6 +145,7 @@ export default function VideosPage() {
         description: '',
         is_free: true
       });
+       setThumbnailPreview(null);
       
       // Reload videos and start polling for the new video
       await loadVideos();
@@ -357,6 +364,39 @@ export default function VideosPage() {
                   className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
                   required
                 />
+              </div>
+              <div>
+                <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">
+                  Thumbnail Image (Optional)
+                </label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) {
+                      setUploadData({ ...uploadData, thumbnailFile: file });
+                      const reader = new FileReader();
+                      reader.onloadend = () => setThumbnailPreview(reader.result);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                  data-testid="thumbnail-file-input"
+                  className="w-full border border-stone-300 rounded-none p-3 focus:outline-none focus:border-[#0f5132]"
+                />
+                <p className="text-xs text-[#5a5a5a] mt-2">
+                  💡 Upload a custom thumbnail for instant display. Recommended: 1280x720px
+                </p>
+                {thumbnailPreview && (
+                  <div className="mt-3">
+                    <p className="text-xs text-[#5a5a5a] mb-2">Preview:</p>
+                    <img 
+                      src={thumbnailPreview} 
+                      alt="Thumbnail preview"
+                      className="w-full h-48 object-cover border border-stone-300 rounded-none"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm uppercase tracking-wider text-[#5a5a5a] mb-2 font-semibold">Title *</label>

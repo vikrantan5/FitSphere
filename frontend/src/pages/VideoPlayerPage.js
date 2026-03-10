@@ -221,7 +221,7 @@ export default function VideoPlayerPage() {
             <Card className="overflow-hidden shadow-2xl">
               {/* Video Player */}
               <div className="relative bg-black aspect-video">
-                {video.embed_url && !video.video_url.includes('.m3u8') ? (
+                {video.embed_url ? (
                   <iframe
                     src={video.embed_url}
                     loading="lazy"
