@@ -243,7 +243,7 @@ export default function OrdersPage() {
               <div>
                 <p className="text-xs text-[#5a5a5a] uppercase tracking-wider mb-2">Customer Information</p>
                 <div className="bg-[#fdfbf7] p-4 border border-stone-200">
-                  <p className="font-medium">{selectedOrder.customer_name}</p>
+                  <p className="font-medium text-white">{selectedOrder.customer_name}</p>
                   <p className="text-sm text-[#5a5a5a] mt-1">{selectedOrder.customer_email}</p>
                   <p className="text-sm text-[#5a5a5a]">{selectedOrder.customer_phone}</p>
                 </div>
@@ -261,7 +261,7 @@ export default function OrdersPage() {
                     <div key={index} className="p-4 flex justify-between hover:bg-[#fdfbf7] transition-colors">
                       <div>
                         <p className="font-medium">{item.product_name}</p>
-                        <p className="text-sm text-[#5a5a5a]">Quantity: {item.quantity}</p>
+                        <p className="text-sm text-white">Quantity: {item.quantity}</p>
                       </div>
                       <p className="font-bold text-[#0f5132]">₹{item.price.toFixed(2)}</p>
                     </div>

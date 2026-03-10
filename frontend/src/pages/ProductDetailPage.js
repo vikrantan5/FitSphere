@@ -241,13 +241,14 @@ export default function ProductDetailPage() {
 
           {/* Quantity + Buy */}
           <Card className="saas-glass-card p-6">
-            <label className="mb-2 block text-sm font-semibold uppercase tracking-[0.15em] text-cyan-300">
+            <label className="mb-2 block text-sm font-semibold uppercase tracking-[0.15em] text-white">
               Quantity
             </label>
 
             <div className="flex items-center gap-3">
               <div className="flex items-center rounded-lg border border-white/15 bg-zinc-950/70">
                 <Button
+                className="text-white"
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   variant="ghost"
                   size="sm"
@@ -256,11 +257,12 @@ export default function ProductDetailPage() {
                   <Minus className="h-4 w-4" />
                 </Button>
 
-                <span className="px-6 py-2 text-lg font-semibold">
+                <span className="px-6 py-2 text-lg font-semibold text-white">
                   {quantity}
                 </span>
 
                 <Button
+                className="text-white"
                   onClick={() =>
                     setQuantity(Math.min(product.stock, quantity + 1))
                   }

@@ -410,7 +410,7 @@ export default function UserSessionsPage() {
             {/* Location */}
             {booking.attendance_type === "gym" &&
               booking.gym_location && (
-                <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border border-emerald-500/20">
+                <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border text-white border-emerald-500/20">
                   <LocationDisplay
                     location={booking.gym_location}
                     title="Gym Location"
@@ -420,7 +420,7 @@ export default function UserSessionsPage() {
 
             {booking.attendance_type === "home_visit" &&
               booking.user_location && (
-                <div className="mt-2 p-3 bg-zinc-800/50 rounded-lg border border-purple-500/20">
+                <div className="mt-2 p-3 bg-zinc-800/50 text-white rounded-lg border border-purple-500/20">
                   <LocationDisplay
                     location={booking.user_location}
                     title="Your Location"
@@ -477,7 +477,7 @@ export default function UserSessionsPage() {
   </Card>
 )}
         {/* Filters */}
-       <Card className="saas-glass-card p-6 mb-8">
+       <Card className="saas-glass-card p-6 mb-8 text-white">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />

@@ -311,7 +311,7 @@ export default function UserCartPage() {
                     </div>
 
                     <div className="mt-4 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 text-white">
                         <Button
                           onClick={() => updateQuantity(item.product_id, -1)}
                           variant="outline"
@@ -357,7 +357,7 @@ export default function UserCartPage() {
                 Customer Information
               </h3>
 
-              <div className="space-y-4">
+              <div className="space-y-4 text-white">
                 <Input
                   placeholder="Name"
                   value={customerInfo.name}
