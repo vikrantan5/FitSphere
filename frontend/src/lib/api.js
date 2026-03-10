@@ -35,11 +35,12 @@ export const videoAPI = {
     headers: { 'Content-Type': 'multipart/form-data' },
   }),
   getAll: (params) => api.get('/videos', { params }),
+  getById: (id) => api.get(`/videos/${id}`),
   getOne: (id) => api.get(`/videos/${id}`),
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
-   getStatus: (id) => api.get(`/videos/${id}/status`),
-   updateThumbnail: (id) => api.put(`/videos/${id}/update-thumbnail`),
+  getStatus: (id) => api.get(`/videos/${id}/status`),
+  updateThumbnail: (id) => api.put(`/videos/${id}/update-thumbnail`),
 };
 
 // Image APIs

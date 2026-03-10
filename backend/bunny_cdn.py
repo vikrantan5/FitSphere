@@ -50,14 +50,19 @@ async def create_bunny_video(title: str):
     async with httpx.AsyncClient() as client:
         res = await client.post(url, headers=headers, json={"title": title})
 
-    if res.status_code == 201:
+    if res.status_code in [200, 201, 202]:
         video_data = res.json()
+        if not video_data.get("guid"):
+            error_msg = "Bunny Stream response missing video guid"
+            logger.error(f"{error_msg}. Response: {res.text}")
+            raise HTTPException(500, error_msg)
+
         logger.info(f"Successfully created video entry: {video_data.get('guid')}")
         return video_data
-    else:
-        error_msg = f"Failed to create video entry. Status: {res.status_code}"
-        logger.error(f"{error_msg}. Response: {res.text}")
-        raise HTTPException(500, error_msg)
+
+    error_msg = f"Failed to create video entry. Status: {res.status_code}"
+    logger.error(f"{error_msg}. Response: {res.text}")
+    raise HTTPException(500, error_msg)
 # =====================================================
 # 2️⃣ UPLOAD VIDEO TO BUNNY STREAM
 # =====================================================

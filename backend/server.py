@@ -405,7 +405,7 @@ async def upload_video(
         
         # Create notification
         notification = Notification(
-            otification_type=NotificationType.NEW_USER,  # Using NEW_USER as generic notification type
+            notification_type=NotificationType.NEW_USER,  # Using NEW_USER as generic notification type
             message=f"New video uploaded: {title}"
         )
         notif_dict = notification.model_dump()
@@ -420,6 +420,9 @@ async def upload_video(
             video_id=upload_result.get('video_id'),
             embed_url=upload_result.get('embed_url')
         )
+    except HTTPException:
+        raise
+
     
     except Exception as e:
         logger.error(f"Video upload error: {str(e)}")
@@ -583,30 +586,83 @@ async def get_video_status(video_id: str):
         "stream_api_key": os.environ.get("BUNNY_STREAM_API_KEY")
     }
     
+    # Check configuration first
+    if not config["stream_library_id"] or not config["stream_api_key"]:
+        return {"status": "config_error", "ready": False}
+    
     try:
         url = f"https://video.bunnycdn.com/library/{config['stream_library_id']}/videos/{bunny_video_id}"
         headers = {"AccessKey": config["stream_api_key"]}
         
         async with httpx.AsyncClient() as client:
             res = await client.get(url, headers=headers)
-            
+
         if res.status_code == 200:
             data = res.json()
             # status: 0=queued, 1=processing, 2=encoding, 3=finished, 4=resolution_finished, 5=error
             status_code = data.get('status', 0)
             is_ready = status_code >= 3
-            
+            thumbnail_url = f"https://vz-{config['stream_library_id']}.b-cdn.net/{bunny_video_id}/thumbnail.jpg" if is_ready else None
+
+            if is_ready and thumbnail_url and not video.get("thumbnail_url"):
+                await db.videos.update_one(
+                    {"id": video_id},
+                    {"$set": {"thumbnail_url": thumbnail_url, "updated_at": datetime.utcnow().isoformat()}}
+                )
+
             return {
                 "status": status_code,
                 "ready": is_ready,
                 "encodeProgress": data.get('encodeProgress', 0),
-                "thumbnail_url": f"https://vz-{config['stream_library_id']}.b-cdn.net/{bunny_video_id}/thumbnail.jpg" if is_ready else None
+                "thumbnail_url": thumbnail_url
             }
         else:
             return {"status": "error", "ready": False}
     except Exception as e:
         logger.error(f"Error checking video status: {str(e)}")
         return {"status": "error", "ready": False, "error": str(e)}
+
+
+@api_router.put("/videos/{video_id}/update-thumbnail")
+async def update_video_thumbnail(video_id: str, admin: dict = Depends(get_current_admin)):
+    """Update thumbnail URL once Bunny Stream encoding is complete"""
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    bunny_video_id = video.get("video_id")
+    if not bunny_video_id:
+        raise HTTPException(status_code=400, detail="Video does not have Bunny Stream ID")
+
+    stream_library_id = os.environ.get("BUNNY_STREAM_LIBRARY_ID")
+    stream_api_key = os.environ.get("BUNNY_STREAM_API_KEY")
+    if not stream_library_id or not stream_api_key:
+        raise HTTPException(status_code=500, detail="Bunny Stream configuration missing")
+
+    url = f"https://video.bunnycdn.com/library/{stream_library_id}/videos/{bunny_video_id}"
+    headers = {"AccessKey": stream_api_key}
+
+    async with httpx.AsyncClient() as client:
+        res = await client.get(url, headers=headers)
+
+    if res.status_code != 200:
+        raise HTTPException(status_code=502, detail="Failed to fetch Bunny video status")
+
+    status_code = res.json().get("status", 0)
+    if status_code < 3:
+        raise HTTPException(status_code=409, detail="Video is still processing")
+
+    thumbnail_url = f"https://vz-{stream_library_id}.b-cdn.net/{bunny_video_id}/thumbnail.jpg"
+    await db.videos.update_one(
+        {"id": video_id},
+        {"$set": {"thumbnail_url": thumbnail_url, "updated_at": datetime.utcnow().isoformat()}}
+    )
+
+    return {
+        "success": True,
+        "video_id": video_id,
+        "thumbnail_url": thumbnail_url
+    }
 
 # ==================== IMAGE MANAGEMENT ENDPOINTS ====================
 
