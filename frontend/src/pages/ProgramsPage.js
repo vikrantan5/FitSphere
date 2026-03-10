@@ -211,21 +211,24 @@ export default function ProgramsPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {programs.map((program, idx) => (
               <Card key={program.id} className="overflow-hidden hover:shadow-xl transition-all bg-white border border-stone-100" data-testid={`program-card-${idx}`}>
-                <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#0f5132] to-[#0a3d25]">
+                                <div className="relative h-56 overflow-hidden bg-gradient-to-br from-[#0f5132] to-[#0a3d25]">
                   {program.image_url ? (
                     <img 
                       src={program.image_url} 
                       alt={program.title}
                       className="w-full h-full object-cover"
+                      crossOrigin="anonymous"
                       onError={(e) => {
+                        console.error('Failed to load program image:', program.image_url);
                         e.target.style.display = 'none';
-                        e.target.nextSibling.style.display = 'flex';
                       }}
                     />
                   ) : null}
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#0f5132] to-[#0a3d25] flex items-center justify-center" style={{ display: program.image_url ? 'none' : 'flex' }}>
-                    <Dumbbell className="h-20 w-20 text-white opacity-50" />
-                  </div>
+                  {!program.image_url && (
+                    <div className="absolute inset-0 bg-gradient-to-br from-[#0f5132] to-[#0a3d25] flex items-center justify-center">
+                      <Dumbbell className="h-20 w-20 text-white opacity-50" />
+                    </div>
+                  )}
                   <div className="absolute top-4 left-4 bg-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider text-[#0f5132]">
                     {program.category}
                   </div>
@@ -517,25 +520,25 @@ export default function ProgramsPage() {
                   className="bg-transparent border border-stone-300 rounded-none px-4 py-3 focus:border-[#0f5132] focus:ring-0 mt-2"
                   data-testid="program-image-url-input"
                 />
-                <p className="text-xs text-[#5a5a5a] mt-2">
-                  💡 Tip: Right-click on any Google Image → "Copy image address" and paste here (supports both http:// and https://)
+                                <p className="text-xs text-[#5a5a5a] mt-2">
+                  💡 Tip: For best results, use direct image URLs from CDNs or image hosting services. Google Images may not work due to CORS restrictions.
                 </p>
                 {formData.image_url && formData.image_url.trim() !== '' && (
                   <div className="mt-3">
                     <p className="text-xs text-[#5a5a5a] mb-2">Preview:</p>
-                    <div className="w-full h-40 border border-stone-300 rounded-none overflow-hidden bg-[#fdfbf7]">
+                    <div className="w-full h-40 border border-stone-300 rounded-none overflow-hidden bg-[#fdfbf7] relative">
                       <img 
                         src={formData.image_url} 
                         alt="Preview"
                         className="w-full h-full object-cover"
+                        crossOrigin="anonymous"
                         onError={(e) => {
-                          e.target.src = '';
+                          console.error('Image preview failed:', formData.image_url);
                           e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'flex';
                         }}
                       />
-                      <div className="w-full h-full flex items-center justify-center text-red-500 text-sm" style={{ display: 'none' }}>
-                        Invalid or broken image URL
+                      <div className="absolute inset-0 flex items-center justify-center text-red-500 text-sm bg-red-50" style={{ display: 'none' }} id="preview-error">
+                        ⚠️ Unable to load image preview. The URL might be invalid or have CORS restrictions.
                       </div>
                     </div>
                   </div>

@@ -110,6 +110,13 @@ export default function ImagesPage() {
                     src={image.image_url}
                     alt={image.title}
                     className="w-full h-full object-cover"
+                    crossOrigin="anonymous"
+                    onError={(e) => {
+                      console.error('Failed to load image:', image.image_url);
+                      e.target.onerror = null;
+                      // Fallback to proxy if direct CDN fails
+                      e.target.src = `${process.env.REACT_APP_BACKEND_URL}/api/images/proxy/${image.id}`;
+                    }}
                   />
                 </div>
                 <div className="p-4">

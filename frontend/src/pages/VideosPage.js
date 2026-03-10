@@ -128,6 +128,11 @@ export default function VideosPage() {
                       src={video.thumbnail_url}
                       alt={video.title}
                       className="w-full h-full object-cover"
+                       crossOrigin="anonymous"
+                      onError={(e) => {
+                        console.error('Failed to load thumbnail:', video.thumbnail_url);
+                        e.target.style.display = 'none';
+                      }}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
