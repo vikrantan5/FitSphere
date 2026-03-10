@@ -9,6 +9,7 @@ import DashboardPage from './pages/DashboardPage';
 import VideosPage from './pages/VideosPage';
 import ImagesPage from './pages/ImagesPage';
 import ProductsPage from './pages/ProductsPage';
+import TrainersPage from './pages/TrainersPage';
 import ProgramsPage from './pages/ProgramsPage';
 import BookingsPage from './pages/BookingsPage';
 import OrdersPage from './pages/OrdersPage';
@@ -207,6 +208,14 @@ function App() {
           element={
             <AdminRoute>
               <ProgramsPage />
+            </AdminRoute>
+          }
+        />
+         <Route
+          path="/admin/trainers"
+          element={
+            <AdminRoute>
+              <TrainersPage />
             </AdminRoute>
           }
         />

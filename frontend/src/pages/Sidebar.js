@@ -16,6 +16,7 @@ import {
   Building,
     MessageSquare,
   Star,
+  UserCircle,
 } from 'lucide-react';
 
 export default function Sidebar() {
@@ -34,6 +35,7 @@ export default function Sidebar() {
     { path: '/admin/images', icon: Image, label: 'Images' },
     { path: '/admin/products', icon: ShoppingBag, label: 'Products' },
     { path: '/admin/programs', icon: Layers, label: 'Programs' },
+      { path: '/admin/trainers', icon: UserCircle, label: 'Trainers' },
     { path: '/admin/bookings', icon: Calendar, label: 'Bookings' },
     { path: '/admin/gym-settings', icon: Building, label: 'Gym Settings' },
     { path: '/admin/orders', icon: ShoppingCart, label: 'Orders' },
