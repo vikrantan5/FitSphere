@@ -317,6 +317,10 @@ class Testimonial(BaseModel):
     comment: str
     service_type: str
     is_approved: bool = False
+    approval_status: str = "pending"  # pending, approved, rejected
+    name: Optional[str] = None  # For frontend compatibility
+    date: Optional[datetime] = None  # For frontend compatibility
+    image_url: Optional[str] = None  # For user profile image
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # Trainer Models

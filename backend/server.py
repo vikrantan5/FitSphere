@@ -1767,11 +1767,15 @@ async def create_testimonial(
         user_email=user_data['email'],
         rating=testimonial_data.rating,
         comment=testimonial_data.comment,
-        service_type=testimonial_data.service_type
+       service_type=testimonial_data.service_type,
+        name=user_data['name'],  # For frontend compatibility
+        approval_status="pending"
     )
     
     testimonial_dict = testimonial.model_dump()
     testimonial_dict['created_at'] = testimonial_dict['created_at'].isoformat()
+    if testimonial_dict.get('date'):
+        testimonial_dict['date'] = testimonial_dict['date'].isoformat()
     
     await db.testimonials.insert_one(testimonial_dict)
     
@@ -1787,10 +1791,13 @@ async def get_testimonials(
     skip: int = 0,
     limit: int = 20
 ):
-    """Get testimonials"""
+    """Get testimonials (public endpoint - shows only approved by default)"""
     query = {}
     if approved_only:
-        query['is_approved'] = True
+           query['$or'] = [
+            {'is_approved': True},
+            {'approval_status': 'approved'}
+        ]
     if service_type:
         query['service_type'] = service_type
     
@@ -1799,6 +1806,39 @@ async def get_testimonials(
     for testimonial in testimonials:
         if isinstance(testimonial.get('created_at'), str):
             testimonial['created_at'] = datetime.fromisoformat(testimonial['created_at'])
+        # Ensure approval_status is set
+        if 'approval_status' not in testimonial:
+            testimonial['approval_status'] = 'approved' if testimonial.get('is_approved') else 'pending'
+        # Add name field for compatibility
+        if 'name' not in testimonial and 'user_name' in testimonial:
+            testimonial['name'] = testimonial['user_name']
+    
+    return testimonials
+
+@api_router.get("/testimonials/all", response_model=List[Testimonial])
+async def get_all_testimonials(
+    skip: int = 0,
+    limit: int = 100,
+    admin: dict = Depends(get_current_admin)
+):
+    """Get all testimonials for admin (includes pending, approved, and rejected)"""
+    testimonials = await db.testimonials.find({}, {"_id": 0}).skip(skip).limit(limit).sort("created_at", -1).to_list(limit)
+    
+    for testimonial in testimonials:
+        if isinstance(testimonial.get('created_at'), str):
+            testimonial['created_at'] = datetime.fromisoformat(testimonial['created_at'])
+        # Ensure approval_status is set for backward compatibility
+        if 'approval_status' not in testimonial:
+            if testimonial.get('is_approved'):
+                testimonial['approval_status'] = 'approved'
+            else:
+                testimonial['approval_status'] = 'pending'
+        # Add name field for compatibility
+        if 'name' not in testimonial and 'user_name' in testimonial:
+            testimonial['name'] = testimonial['user_name']
+        # Add date field for compatibility
+        if 'date' not in testimonial and 'created_at' in testimonial:
+            testimonial['date'] = testimonial['created_at']
     
     return testimonials
 
@@ -1810,13 +1850,35 @@ async def approve_testimonial(
     """Approve testimonial"""
     result = await db.testimonials.update_one(
         {"id": testimonial_id},
-        {"$set": {"is_approved": True}}
+         {"$set": {
+            "is_approved": True,
+            "approval_status": "approved"
+        }}
     )
     
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Testimonial not found")
     
     return {"message": "Testimonial approved"}
+
+@api_router.put("/testimonials/{testimonial_id}/reject")
+async def reject_testimonial(
+    testimonial_id: str,
+    admin: dict = Depends(get_current_admin)
+):
+    """Reject testimonial"""
+    result = await db.testimonials.update_one(
+        {"id": testimonial_id},
+        {"$set": {
+            "is_approved": False,
+            "approval_status": "rejected"
+        }}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Testimonial not found")
+    
+    return {"message": "Testimonial rejected"}
 
 @api_router.delete("/testimonials/{testimonial_id}")
 async def delete_testimonial(

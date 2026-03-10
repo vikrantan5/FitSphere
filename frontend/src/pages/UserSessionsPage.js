@@ -333,20 +333,20 @@ export default function UserSessionsPage() {
 
   const getDifficultyColor = (difficulty) => {
     switch (difficulty) {
-      case 'beginner': return 'bg-green-100 text-green-700';
-      case 'intermediate': return 'bg-yellow-100 text-yellow-700';
-      case 'advanced': return 'bg-red-100 text-red-700';
-      default: return 'bg-gray-100 text-gray-700';
+     case 'beginner': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'intermediate': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+      case 'advanced': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+      default: return 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/30';
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'confirmed': return 'bg-green-100 text-green-700';
-      case 'pending': return 'bg-yellow-100 text-yellow-700';
-      case 'cancelled': return 'bg-red-100 text-red-700';
-      case 'completed': return 'bg-blue-100 text-blue-700';
-      default: return 'bg-gray-100 text-gray-700';
+        case 'confirmed': return 'bg-green-500/20 text-green-300 border border-green-500/30';
+      case 'pending': return 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30';
+      case 'cancelled': return 'bg-red-500/20 text-red-300 border border-red-500/30';
+      case 'completed': return 'bg-blue-500/20 text-blue-300 border border-blue-500/30';
+      default: return 'bg-zinc-500/20 text-zinc-300 border border-zinc-500/30';
     }
   };
 
@@ -502,38 +502,53 @@ export default function UserSessionsPage() {
           </div>
         </Card>
 
-        {/* Programs Grid */}
+               {/* Programs Grid */}
         {loading ? (
-          <div className="text-center py-12">Loading programs...</div>
+          <div className="text-center py-12 text-zinc-300">Loading programs...</div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredPrograms.map((program) => (
-              <Card key={program.id} className="overflow-hidden hover:shadow-xl transition-shadow" data-testid="program-card">
-                <div className="relative h-48 bg-gradient-to-br from-purple-500 to-pink-500">
-                  {program.image_url && (
-                    <img src={program.image_url} alt={program.title} className="w-full h-full object-cover" />
+              <Card 
+                key={program.id} 
+                className="group overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all duration-300 hover:shadow-2xl hover:shadow-cyan-500/10" 
+                data-testid="program-card"
+              >
+                <div className="relative h-48 overflow-hidden">
+                  {program.image_url ? (
+                    <img 
+                      src={program.image_url} 
+                      alt={program.title} 
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" 
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-cyan-500/20 via-purple-500/20 to-pink-500/20" />
                   )}
-                  <div className={`absolute top-2 right-2 px-2 py-1 text-xs rounded-full font-semibold ${getDifficultyColor(program.difficulty)}`}>
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-transparent to-transparent" />
+                  <div className={`absolute top-3 right-3 px-3 py-1 text-xs rounded-full font-semibold backdrop-blur-md ${getDifficultyColor(program.difficulty)}`}>
                     {program.difficulty}
                   </div>
                 </div>
                 <div className="p-6">
-                  <h3 className="font-bold text-xl mb-2" data-testid="program-title">{program.title}</h3>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{program.description}</p>
+                  <h3 className="font-bold text-xl mb-2 text-white group-hover:text-cyan-400 transition-colors" data-testid="program-title">
+                    {program.title}
+                  </h3>
+                  <p className="text-sm text-zinc-400 mb-4 line-clamp-2">{program.description}</p>
                   
-                  <div className="space-y-2 text-sm text-gray-700 mb-4">
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 mr-2 text-purple-600" />
+                  <div className="space-y-2 text-sm mb-4">
+                    <div className="flex items-center text-zinc-300">
+                      <Users className="h-4 w-4 mr-2 text-cyan-400" />
                       <span>Trainer: {getTrainerName(program.trainer_id)}</span>
                     </div>
-                    <div className="flex items-center">
-                      <Clock className="h-4 w-4 mr-2 text-purple-600" />
+                    <div className="flex items-center text-zinc-300">
+                      <Clock className="h-4 w-4 mr-2 text-purple-400" />
                       <span>{program.duration_weeks} weeks • {program.sessions_per_week}x/week</span>
                     </div>
                     <div className="flex items-center">
-                      <span className="font-bold text-purple-600 text-lg">₹{program.price}</span>
+                      <span className="font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 text-2xl">
+                        ₹{program.price}
+                      </span>
                       {program.supports_home_visit && program.home_visit_additional_charge > 0 && (
-                        <span className="ml-2 text-xs text-gray-500">(+₹{program.home_visit_additional_charge} home)</span>
+                        <span className="ml-2 text-xs text-zinc-500">(+₹{program.home_visit_additional_charge} home)</span>
                       )}
                     </div>
                   </div>
@@ -541,12 +556,12 @@ export default function UserSessionsPage() {
                   {/* Attendance Options */}
                   <div className="flex gap-2 mb-4">
                     {program.supports_gym_attendance && (
-                      <span className="px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-700 font-medium">
+                      <span className="px-3 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-medium">
                         🏋️ Gym
                       </span>
                     )}
                     {program.supports_home_visit && (
-                      <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-700 font-medium">
+                      <span className="px-3 py-1 text-xs rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 font-medium">
                         🏠 Home Visit
                       </span>
                     )}
@@ -554,7 +569,7 @@ export default function UserSessionsPage() {
 
                   <Button 
                     onClick={() => handleBookProgram(program)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+                    className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-semibold shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 transition-all"
                     data-testid="book-now-button"
                   >
                     Book Now
