@@ -39,6 +39,7 @@ export const videoAPI = {
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
    getStatus: (id) => api.get(`/videos/${id}/status`),
+   updateThumbnail: (id) => api.put(`/videos/${id}/update-thumbnail`),
 };
 
 // Image APIs

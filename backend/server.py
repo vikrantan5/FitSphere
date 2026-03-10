@@ -405,7 +405,7 @@ async def upload_video(
         
         # Create notification
         notification = Notification(
-            notification_type=NotificationType.SYSTEM_ERROR,
+            otification_type=NotificationType.NEW_USER,  # Using NEW_USER as generic notification type
             message=f"New video uploaded: {title}"
         )
         notif_dict = notification.model_dump()
@@ -423,6 +423,9 @@ async def upload_video(
     
     except Exception as e:
         logger.error(f"Video upload error: {str(e)}")
+        logger.error(f"Error type: {type(e).__name__}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/videos", response_model=List[Video])

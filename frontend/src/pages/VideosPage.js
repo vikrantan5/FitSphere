@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { videoAPI } from '../lib/api';
 import Layout from './Layout';
 import { Upload, Trash2, Lock, Unlock, Star, DollarSign } from 'lucide-react';
@@ -18,19 +18,94 @@ export default function VideosPage() {
     is_free: true
   });
   const [uploading, setUploading] = useState(false);
+  const [processingVideos, setProcessingVideos] = useState(new Map()); // Track encoding status
+  const pollingIntervals = useRef(new Map()); // Store interval IDs
 
   useEffect(() => {
     loadVideos();
+    
+    // Cleanup: Clear all polling intervals on unmount
+    return () => {
+      pollingIntervals.current.forEach((intervalId) => clearInterval(intervalId));
+      pollingIntervals.current.clear();
+    };
   }, []);
 
   const loadVideos = async () => {
     try {
       const response = await videoAPI.getAll();
       setVideos(response.data);
+      
+      // Check for videos that might still be processing
+      response.data.forEach(video => {
+        if (video.video_id && !video.thumbnail_url) {
+          startPollingVideoStatus(video.id);
+        }
+      });
     } catch (error) {
       toast.error('Failed to load videos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const startPollingVideoStatus = (videoId) => {
+    // Don't start polling if already polling this video
+    if (pollingIntervals.current.has(videoId)) {
+      return;
+    }
+
+    // Initial status check
+    checkVideoStatus(videoId);
+
+    // Poll every 5 seconds
+    const intervalId = setInterval(() => {
+      checkVideoStatus(videoId);
+    }, 5000);
+
+    pollingIntervals.current.set(videoId, intervalId);
+  };
+
+  const checkVideoStatus = async (videoId) => {
+    try {
+      const response = await videoAPI.getStatus(videoId);
+      const statusData = response.data;
+
+      // Update processing status
+      setProcessingVideos(prev => {
+        const newMap = new Map(prev);
+        newMap.set(videoId, statusData);
+        return newMap;
+      });
+
+      // If video is ready (status >= 3), update thumbnail and stop polling
+      if (statusData.ready) {
+        try {
+          await videoAPI.updateThumbnail(videoId);
+          
+          // Stop polling
+          const intervalId = pollingIntervals.current.get(videoId);
+          if (intervalId) {
+            clearInterval(intervalId);
+            pollingIntervals.current.delete(videoId);
+          }
+
+          // Remove from processing map
+          setProcessingVideos(prev => {
+            const newMap = new Map(prev);
+            newMap.delete(videoId);
+            return newMap;
+          });
+
+          // Reload videos to get updated data
+          loadVideos();
+          toast.success('Video encoding complete!');
+        } catch (error) {
+          console.error('Error updating thumbnail:', error);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking video status:', error);
     }
   };
 
@@ -52,8 +127,8 @@ export default function VideosPage() {
     formData.append('is_free', uploadData.is_free);
 
     try {
-      await videoAPI.upload(formData);
-      toast.success('Video uploaded successfully');
+      const response = await videoAPI.upload(formData);
+      toast.success('Video uploaded! Encoding in progress...');
       setShowUploadModal(false);
       setUploadData({
         file: null,
@@ -64,7 +139,19 @@ export default function VideosPage() {
         description: '',
         is_free: true
       });
-      loadVideos();
+      
+      // Reload videos and start polling for the new video
+      await loadVideos();
+      
+      // Extract video_id from response if available
+      if (response.data && response.data.video_id) {
+        // Find the newly uploaded video by matching video_id
+        const newVideos = await videoAPI.getAll();
+        const uploadedVideo = newVideos.data.find(v => v.video_id === response.data.video_id);
+        if (uploadedVideo) {
+          startPollingVideoStatus(uploadedVideo.id);
+        }
+      }
     } catch (error) {
       toast.error(error.response?.data?.detail || 'Upload failed');
     } finally {
@@ -136,12 +223,30 @@ export default function VideosPage() {
                       }}
                     />
                   ) : (
-                    <div className="flex items-center justify-center h-full">
-                                            <div className="text-center text-white/70">
-                        <svg className="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                     <div className="flex items-center justify-center h-full">
+                      <div className="text-center text-white/70">
+                        <svg className="w-16 h-16 mx-auto mb-2 animate-pulse" fill="currentColor" viewBox="0 0 20 20">
                           <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
                         </svg>
-                        <p className="text-sm">Processing...</p>
+                        {processingVideos.has(video.id) ? (
+                          <>
+                            <p className="text-sm font-semibold">Encoding...</p>
+                            <p className="text-xs mt-1">
+                              {processingVideos.get(video.id)?.encodeProgress || 0}%
+                            </p>
+                          </>
+                        ) : (
+                          <p className="text-sm">Processing...</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Show encoding badge for videos being processed */}
+                  {processingVideos.has(video.id) && !video.thumbnail_url && (
+                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                      <div className="bg-yellow-500 text-white px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider shadow-lg">
+                        🎬 Encoding {processingVideos.get(video.id)?.encodeProgress || 0}%
                       </div>
                     </div>
                   )}

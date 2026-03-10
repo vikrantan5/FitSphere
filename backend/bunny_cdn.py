@@ -93,7 +93,10 @@ async def upload_video_to_bunny_stream(file: UploadFile, title: str):
         async with httpx.AsyncClient(timeout=600.0) as client:
             res = await client.put(upload_url, headers=headers, content=file_content)
 
-        if res.status_code not in [200, 201]:
+        logger.info(f"Video file upload response - Status: {res.status_code}, Body: {res.text[:500]}")
+        
+        # Bunny Stream API returns 200 OK or 202 Accepted for successful uploads
+        if res.status_code not in [200, 201, 202]:
             logger.error(f"Video upload failed. Status: {res.status_code}, Response: {res.text}")
             raise HTTPException(500, f"Upload failed: {res.text}")
 
