@@ -38,6 +38,7 @@ export const videoAPI = {
   getOne: (id) => api.get(`/videos/${id}`),
   update: (id, data) => api.put(`/videos/${id}`, data),
   delete: (id) => api.delete(`/videos/${id}`),
+   getStatus: (id) => api.get(`/videos/${id}/status`),
 };
 
 // Image APIs

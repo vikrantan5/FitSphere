@@ -19,6 +19,7 @@ import UserDashboard from './pages/UserDashboard';
 import UserLandingPage from './pages/UserLandingPage';
 import UserSessionsPage from './pages/UserSessionsPage';
 import UserVideosPage from './pages/UserVideosPage';
+import VideoPlayerPage from './pages/VideoPlayerPage';
 import UserShopPage from './pages/UserShopPage';
 import UserCartPage from './pages/UserCartPage';
 import UserChatPage from './pages/UserChatPage';
@@ -238,6 +239,14 @@ function App() {
           element={
             <UserRoute>
               <UserVideosPage />
+            </UserRoute>
+          }
+        />
+        <Route
+          path="/user/videos/watch/:videoId"
+          element={
+            <UserRoute>
+              <VideoPlayerPage />
             </UserRoute>
           }
         />

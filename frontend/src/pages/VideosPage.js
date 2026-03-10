@@ -130,13 +130,19 @@ export default function VideosPage() {
                       className="w-full h-full object-cover"
                        crossOrigin="anonymous"
                       onError={(e) => {
-                        console.error('Failed to load thumbnail:', video.thumbnail_url);
+                        // If thumbnail fails to load, hide it and show gradient background
+                        console.log('Thumbnail not yet available:', video.thumbnail_url);
                         e.target.style.display = 'none';
                       }}
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full">
-                      <span className="text-white/50">No thumbnail</span>
+                                            <div className="text-center text-white/70">
+                        <svg className="w-16 h-16 mx-auto mb-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" />
+                        </svg>
+                        <p className="text-sm">Processing...</p>
+                      </div>
                     </div>
                   )}
                   <div className="absolute top-3 left-3">

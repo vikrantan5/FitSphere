@@ -51,9 +51,13 @@ async def create_bunny_video(title: str):
         res = await client.post(url, headers=headers, json={"title": title})
 
     if res.status_code == 201:
-        return res.json()
+        video_data = res.json()
+        logger.info(f"Successfully created video entry: {video_data.get('guid')}")
+        return video_data
     else:
-        raise HTTPException(500, f"Failed to create video: {res.text}")
+        error_msg = f"Failed to create video entry. Status: {res.status_code}"
+        logger.error(f"{error_msg}. Response: {res.text}")
+        raise HTTPException(500, error_msg)
 # =====================================================
 # 2️⃣ UPLOAD VIDEO TO BUNNY STREAM
 # =====================================================

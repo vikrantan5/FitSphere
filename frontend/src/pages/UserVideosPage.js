@@ -61,8 +61,7 @@ export default function UserVideosPage() {
   };
 
   const openVideo = (video) => {
-    setSelectedVideo(video);
-    setIsModalOpen(true);
+    navigate(`/user/videos/watch/${video.id}`);
   };
 
   const categories = ['all', 'yoga', 'cardio', 'strength', 'pilates', 'dance', 'meditation'];

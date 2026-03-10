@@ -17,7 +17,7 @@ import csv
 import socketio
 import uvicorn
 import random
-
+import httpx
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
@@ -561,6 +561,49 @@ async def delete_video(video_id: str, admin: dict = Depends(get_current_admin)):
     await db.videos.delete_one({"id": video_id})
     
     return {"message": "Video deleted successfully"}
+
+
+@api_router.get("/videos/{video_id}/status")
+async def get_video_status(video_id: str):
+    """Check if video processing is complete on Bunny CDN"""
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0})
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    bunny_video_id = video.get('video_id')
+    if not bunny_video_id:
+        return {"status": "unknown", "ready": False}
+    
+    # Check Bunny Stream API for video status
+    config = {
+        "stream_library_id": os.environ.get("BUNNY_STREAM_LIBRARY_ID"),
+        "stream_api_key": os.environ.get("BUNNY_STREAM_API_KEY")
+    }
+    
+    try:
+        url = f"https://video.bunnycdn.com/library/{config['stream_library_id']}/videos/{bunny_video_id}"
+        headers = {"AccessKey": config["stream_api_key"]}
+        
+        async with httpx.AsyncClient() as client:
+            res = await client.get(url, headers=headers)
+            
+        if res.status_code == 200:
+            data = res.json()
+            # status: 0=queued, 1=processing, 2=encoding, 3=finished, 4=resolution_finished, 5=error
+            status_code = data.get('status', 0)
+            is_ready = status_code >= 3
+            
+            return {
+                "status": status_code,
+                "ready": is_ready,
+                "encodeProgress": data.get('encodeProgress', 0),
+                "thumbnail_url": f"https://vz-{config['stream_library_id']}.b-cdn.net/{bunny_video_id}/thumbnail.jpg" if is_ready else None
+            }
+        else:
+            return {"status": "error", "ready": False}
+    except Exception as e:
+        logger.error(f"Error checking video status: {str(e)}")
+        return {"status": "error", "ready": False, "error": str(e)}
 
 # ==================== IMAGE MANAGEMENT ENDPOINTS ====================
 
