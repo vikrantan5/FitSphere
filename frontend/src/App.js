@@ -25,6 +25,9 @@ import UserCartPage from './pages/UserCartPage';
 import UserChatPage from './pages/UserChatPage';
 import UserTestimonialsPage from './pages/UserTestimonialsPage';
 import ProductDetailPage from './pages/ProductDetailPage';
+import UserLanding from './pages/UserLanding';
+import AdminSupportPage from './pages/AdminSupportPage';
+import AdminReviewsPage from './pages/AdminReviewsPage';
 
 // Protected Route Component for Admin
 function AdminRoute({ children }) {
@@ -213,6 +216,22 @@ function App() {
           element={
             <AdminRoute>
               <GymSettingsPage />
+            </AdminRoute>
+          }
+        />
+         <Route
+          path="/admin/support"
+          element={
+            <AdminRoute>
+              <AdminSupportPage />
+            </AdminRoute>
+          }
+        />
+        <Route
+          path="/admin/reviews"
+          element={
+            <AdminRoute>
+              <AdminReviewsPage />
             </AdminRoute>
           }
         />

@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import LocationPicker from '@/components/LocationPicker';
 import LocationDisplay from '@/components/LocationDisplay';
 import axios from 'axios';
+import { UserLayout } from '@/components/user/UserLayout';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -350,106 +351,131 @@ export default function UserSessionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-              <Dumbbell className="h-6 w-6 text-purple-600" />
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                FitSphere
+     <UserLayout
+      activePath="/user/sessions"
+      title="Personal Training Sessions"
+      subtitle="Book one-on-one sessions with certified trainers"
+    >
+      <div className="space-y-8">
+       
+
+       {/* My Bookings Section */}
+{myBookings.length > 0 && (
+  <Card className="saas-glass-card p-6 mb-8">
+    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+      <Calendar className="h-6 w-6 text-purple-600" />
+      My Bookings
+    </h2>
+
+    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {myBookings.map((booking) => (
+        <Card
+          key={booking.id}
+          className="p-4"
+          data-testid="my-booking-card"
+        >
+          <div className="space-y-2">
+            <h3 className="font-semibold">{booking.program_title}</h3>
+
+            <p className="text-sm text-gray-600">
+              Trainer: {booking.trainer_name}
+            </p>
+
+            <p className="text-sm text-gray-600">
+              <Clock className="inline h-4 w-4 mr-1" />
+              {booking.booking_date} at {booking.time_slot}
+            </p>
+
+            {/* Attendance Mode */}
+            <div className="flex items-center gap-1 text-sm">
+              {booking.attendance_type === "gym" ? (
+                <>
+                  <Dumbbell className="h-4 w-4 text-emerald-600" />
+                  <span className="text-emerald-600 font-medium">
+                    At Gym
+                  </span>
+                </>
+              ) : (
+                <>
+                  <Home className="h-4 w-4 text-purple-600" />
+                  <span className="text-purple-600 font-medium">
+                    Home Visit
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* Location */}
+            {booking.attendance_type === "gym" &&
+              booking.gym_location && (
+                <div className="mt-2">
+                  <LocationDisplay
+                    location={booking.gym_location}
+                    title="Gym Location"
+                  />
+                </div>
+              )}
+
+            {booking.attendance_type === "home_visit" &&
+              booking.user_location && (
+                <div className="mt-2">
+                  <LocationDisplay
+                    location={booking.user_location}
+                    title="Your Location"
+                  />
+                </div>
+              )}
+
+            {/* Status */}
+            <div className="flex gap-2 flex-wrap">
+              <span
+                className={`px-2 py-1 text-xs rounded-full ${getStatusColor(
+                  booking.status
+                )}`}
+              >
+                {booking.status}
+              </span>
+
+              <span
+                className={`px-2 py-1 text-xs rounded-full ${
+                  booking.payment_status === "success"
+                    ? "bg-green-100 text-green-700"
+                    : "bg-yellow-100 text-yellow-700"
+                }`}
+              >
+                {booking.payment_status === "success"
+                  ? "Paid"
+                  : "Pending"}
               </span>
             </div>
-            <div className="flex items-center space-x-4">
-              <Button onClick={() => navigate('/user/dashboard')} variant="outline">Dashboard</Button>
-            </div>
+
+            <p className="text-sm font-semibold text-purple-600">
+              ₹{booking.amount}
+            </p>
+
+            {/* Pay Now */}
+            {booking.payment_status !== "success" &&
+              booking.status !== "cancelled" && (
+                <Button
+                  onClick={() => handlePayForBooking(booking)}
+                  disabled={payingBookingId === booking.id}
+                  size="sm"
+                  className="w-full mt-2 bg-gradient-to-r from-purple-600 to-pink-600"
+                  data-testid="pay-now-btn"
+                >
+                  {payingBookingId === booking.id
+                    ? "Processing..."
+                    : "Pay Now"}
+                </Button>
+              )}
           </div>
-        </div>
-      </div>
-
-      <div className="container mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Personal Training Sessions
-          </h1>
-          <p className="text-xl text-gray-600">
-            Book one-on-one sessions with certified trainers
-          </p>
-        </div>
-
-        {/* My Bookings Section */}
-        {myBookings.length > 0 && (
-          <Card className="p-6 mb-8">
-            <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-              <Calendar className="h-6 w-6 text-purple-600" />
-              My Bookings
-            </h2>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {myBookings.map((booking) => (
-                <Card key={booking.id} className="p-4" data-testid="my-booking-card">
-                  <div className="space-y-2">
-                    <h3 className="font-semibold">{booking.program_title}</h3>
-                    <p className="text-sm text-gray-600">Trainer: {booking.trainer_name}</p>
-                    <p className="text-sm text-gray-600">
-                      <Clock className="inline h-4 w-4 mr-1" />
-                      {booking.booking_date} at {booking.time_slot}
-                    </p>
-                    
-                    {/* Attendance Mode Display */}
-                    <div className="flex items-center gap-1 text-sm">
-                      {booking.attendance_type === 'gym' ? (
-                        <><Dumbbell className="h-4 w-4 text-emerald-600" /> <span className="text-emerald-600 font-medium">At Gym</span></>
-                      ) : (
-                        <><Home className="h-4 w-4 text-purple-600" /> <span className="text-purple-600 font-medium">Home Visit</span></>
-                      )}
-                    </div>
-                    
-                    {/* Location Display */}
-                    {booking.attendance_type === 'gym' && booking.gym_location && (
-                      <div className="mt-2">
-                        <LocationDisplay location={booking.gym_location} title="Gym Location" />
-                      </div>
-                    )}
-                    {booking.attendance_type === 'home_visit' && booking.user_location && (
-                      <div className="mt-2">
-                        <LocationDisplay location={booking.user_location} title="Your Location" />
-                      </div>
-                    )}
-                    
-                    <div className="flex gap-2 flex-wrap">
-                      <span className={`px-2 py-1 text-xs rounded-full ${getStatusColor(booking.status)}`}>
-                        {booking.status}
-                      </span>
-                      <span className={`px-2 py-1 text-xs rounded-full ${booking.payment_status === 'success' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                        {booking.payment_status === 'success' ? 'Paid' : 'Pending'}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm font-semibold text-purple-600">₹{booking.amount}</p>
-
-                      {/* Pay Now Button for Pending Payments */}
-                    {booking.payment_status !== 'success' && booking.status !== 'cancelled' && (
-                      <Button
-                        onClick={() => handlePayForBooking(booking)}
-                        disabled={payingBookingId === booking.id}
-                        size="sm"
-                        className="w-full mt-2 bg-gradient-to-r from-purple-600 to-pink-600"
-                        data-testid="pay-now-btn"
-                      >
-                        {payingBookingId === booking.id ? 'Processing...' : 'Pay Now'}
-                      </Button>
-                    )}
-                  </div>
-                </Card>
-              ))}
-            </div>
-          </Card>
-        )}
-
+        </Card>
+      ))}
+    </div>
+  </Card>
+)}
         {/* Filters */}
-        <Card className="p-6 mb-8">
+       <Card className="saas-glass-card p-6 mb-8">
           <div className="grid md:grid-cols-2 gap-4">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
@@ -546,7 +572,10 @@ export default function UserSessionsPage() {
         )}
       </div>
 
-      {/* Booking Modal */}
+     </UserLayout>
+  );
+
+  
       <Dialog open={showBookingModal} onOpenChange={setShowBookingModal}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -701,6 +730,7 @@ export default function UserSessionsPage() {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+   </UserLayout>
+   
   );
 }

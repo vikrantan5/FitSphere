@@ -1,56 +1,60 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Play, Heart, Star, Sparkles, Phone, Mail, Instagram, Facebook, Twitter, ShoppingCart, Calendar, Award, TrendingUp, Lock, Shield } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { 
+  Dumbbell, ShoppingBag, Calendar, PlayCircle, 
+  Star, TrendingUp, Award, Zap, Users, ChevronRight,
+  Shield, Target, Activity, Heart
+} from 'lucide-react';
+import { UserLayout } from '@/components/user/UserLayout';
 import axios from 'axios';
 import { toast } from 'sonner';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
-export default function UserLandingPage() {
+// Animation variants
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5 }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+export default function UserLanding() {
   const navigate = useNavigate();
-  const [videos, setVideos] = useState([]);
   const [programs, setPrograms] = useState([]);
-  const [products, setProducts] = useState([]);
-  const [testimonials, setTestimonials] = useState([]);
+  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [currentTestimonial, setCurrentTestimonial] = useState(0);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [viewMode, setViewMode] = useState('guest'); // 'guest' or 'all'
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [stats] = useState({
+    totalUsers: '10K+',
+    programsCompleted: '50K+',
+    successRate: '95%',
+    trainers: '50+'
+  });
 
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
-    const userRole = localStorage.getItem('userRole');
-    if (token && userRole === 'user') {
-      setIsAuthenticated(true);
-      setViewMode('all');
-    }
     fetchData();
-  }, [viewMode]);
+  }, []);
 
   const fetchData = async () => {
     try {
-      // Fetch videos based on authentication and view mode
-      let videosEndpoint = `${API}/videos/public`; // Default to free videos
-      if (isAuthenticated && viewMode === 'all') {
-        videosEndpoint = `${API}/videos`;
-      }
-      
-      const [videosRes, programsRes, productsRes, testimonialsRes] = await Promise.all([
-        axios.get(videosEndpoint, { params: { limit: 8 } }),
-        axios.get(`${API}/programs`, { params: { limit: 4, is_active: true } }),
-        axios.get(`${API}/products`, { params: { limit: 4 } }),
-        axios.get(`${API}/testimonials`, { params: { limit: 6, approved_only: true } })
+      const [programsRes, videosRes] = await Promise.all([
+        axios.get(`${API}/programs`, { params: { limit: 4 } }),
+        axios.get(`${API}/videos/public`, { params: { limit: 4 } })
       ]);
       
-      setVideos(videosRes.data);
-      setPrograms(programsRes.data);
-      setProducts(productsRes.data);
-      setTestimonials(testimonialsRes.data);
+      setPrograms(programsRes.data.slice(0, 4));
+      setVideos(videosRes.data.slice(0, 4));
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load content');
@@ -65,606 +69,353 @@ export default function UserLandingPage() {
     
     if (token && userRole === 'user') {
       navigate('/user/dashboard');
-    } else if (token && userRole === 'admin') {
-      navigate('/admin/dashboard');
     } else {
       navigate('/login');
     }
   };
 
-  const handleVideoClick = (video) => {
-    if (!video.is_free && !isAuthenticated) {
-      setShowAuthModal(true);
-      return;
-    }
-    // Play video or navigate to video page
-    toast.success('Playing video: ' + video.title);
-  };
-
-  const handleToggleView = () => {
-    if (!isAuthenticated) {
-      toast.info('Please log in to see all videos');
-      navigate('/login');
-      return;
-    }
-    setViewMode(viewMode === 'guest' ? 'all' : 'guest');
-  };
-
-  const nextTestimonial = () => {
-    if (testimonials.length > 0) {
-      setCurrentTestimonial((prev) => (prev + 1) % testimonials.length);
-    }
-  };
-
-  const prevTestimonial = () => {
-    if (testimonials.length > 0) {
-      setCurrentTestimonial((prev) => (prev - 1 + testimonials.length) % testimonials.length);
-    }
-  };
-
   return (
-    <div className="min-h-screen bg-gradient-to-b from-violet-50 via-pink-50 to-white">
-      {/* Navigation */}
-      <nav className="bg-white/90 backdrop-blur-md shadow-sm sticky top-0 z-50">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-violet-500 via-pink-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-2xl">F</span>
-              </div>
-              <div>
-                <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                  FitSphere
-                </span>
-                <p className="text-xs text-gray-600">Elevate Your Wellness</p>
-              </div>
-            </div>
-            
-            <div className="hidden md:flex items-center space-x-8">
-              <a href="#home" className="text-gray-700 hover:text-violet-600 font-medium transition">
-                Home
-              </a>
-              <a href="#videos" className="text-gray-700 hover:text-violet-600 font-medium transition">
-                Videos
-              </a>
-              <a href="#programs" className="text-gray-700 hover:text-violet-600 font-medium transition">
-                Programs
-              </a>
-              <a href="#products" className="text-gray-700 hover:text-violet-600 font-medium transition">
-                Shop
-              </a>
-              <a href="#testimonials" className="text-gray-700 hover:text-violet-600 font-medium transition">
-                Testimonials
-              </a>
-            </div>
+    <UserLayout
+      activePath="/user/landing"
+      hidePageHeader={true}
+      pageWrapperClassName="min-h-screen"
+    >
+      {/* Hero Section */}
+      <motion.section
+        variants={fadeInUp}
+        initial="initial"
+        animate="animate"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900/95 to-zinc-900/90 border border-white/10 backdrop-blur-xl mb-8 p-12"
+        data-testid="hero-section"
+      >
+        {/* Animated Background Blobs */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
+          <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full blur-3xl animate-pulse delay-2000" />
+        </div>
 
-            <Button 
-              onClick={handleGetStarted}
-              className="bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 hover:opacity-90 text-white rounded-full px-8"
+        <div className="relative z-10">
+          <div className="max-w-4xl mx-auto text-center">
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.6 }}
+              className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-cyan-500/10 border border-cyan-500/20 backdrop-blur-sm"
             >
-              Sign In
+              <Zap className="w-4 h-4 text-cyan-400" />
+              <span className="text-sm font-semibold text-cyan-300">Transform Your Fitness Journey</span>
+            </motion.div>
+
+            <motion.h1
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent"
+              data-testid="hero-title"
+            >
+              Welcome to FitSphere
+            </motion.h1>
+
+            <motion.p
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+              className="text-xl md:text-2xl text-zinc-300 mb-8 max-w-3xl mx-auto"
+              data-testid="hero-subtitle"
+            >
+              Your ultimate fitness companion. Book sessions, shop premium gear, and access exclusive training programs.
+            </motion.p>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.6, duration: 0.6 }}
+              className="flex flex-col sm:flex-row gap-4 justify-center"
+            >
+              <Button
+                onClick={handleGetStarted}
+                className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90 px-8 py-6 text-lg rounded-full"
+                data-testid="get-started-btn"
+              >
+                <Zap className="w-5 h-5 mr-2" />
+                Get Started Now
+              </Button>
+              <Button
+                onClick={() => navigate('/user/sessions')}
+                variant="outline"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-full"
+                data-testid="explore-programs-btn"
+              >
+                <Calendar className="w-5 h-5 mr-2" />
+                Explore Programs
+              </Button>
+            </motion.div>
+          </div>
+        </div>
+      </motion.section>
+
+      {/* Stats Section */}
+      <motion.section
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="mb-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6"
+        data-testid="stats-section"
+      >
+        {[
+          { label: 'Active Users', value: stats.totalUsers, icon: Users, color: 'cyan' },
+          { label: 'Programs Completed', value: stats.programsCompleted, icon: Activity, color: 'purple' },
+          { label: 'Success Rate', value: stats.successRate, icon: TrendingUp, color: 'emerald' },
+          { label: 'Expert Trainers', value: stats.trainers, icon: Award, color: 'amber' }
+        ].map((stat, index) => (
+          <motion.div
+            key={index}
+            variants={fadeInUp}
+            whileHover={{ y: -5, scale: 1.02 }}
+          >
+            <Card className="relative overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 backdrop-blur-xl p-6">
+              <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-${stat.color}-500/10 to-transparent rounded-full blur-2xl`} />
+              <div className="relative z-10">
+                <stat.icon className={`w-8 h-8 text-${stat.color}-400 mb-3`} />
+                <p className="text-3xl font-bold text-white mb-1">{stat.value}</p>
+                <p className="text-sm text-zinc-400">{stat.label}</p>
+              </div>
+            </Card>
+          </motion.div>
+        ))}
+      </motion.section>
+
+      {/* Features Section */}
+      <motion.section
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+        className="mb-12"
+        data-testid="features-section"
+      >
+        <div className="text-center mb-8">
+          <h2 className="text-4xl font-bold text-white mb-3">Why Choose FitSphere?</h2>
+          <p className="text-zinc-400 text-lg">Everything you need for your fitness journey</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {[
+            {
+              icon: Calendar,
+              title: 'Book Sessions',
+              description: 'Schedule personal training sessions with certified trainers',
+              color: 'cyan',
+              path: '/user/sessions'
+            },
+            {
+              icon: ShoppingBag,
+              title: 'Shop Gear',
+              description: 'Premium equipment and supplements curated for you',
+              color: 'blue',
+              path: '/user/shop'
+            },
+            {
+              icon: PlayCircle,
+              title: 'Training Videos',
+              description: 'Access exclusive workout videos and programs',
+              color: 'purple',
+              path: '/user/videos'
+            },
+            {
+              icon: Target,
+              title: 'Track Progress',
+              description: 'Monitor your fitness journey and achievements',
+              color: 'emerald',
+              path: '/user/dashboard'
+            }
+          ].map((feature, index) => (
+            <motion.div
+              key={index}
+              variants={fadeInUp}
+              whileHover={{ y: -5 }}
+            >
+              <Card
+                className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all backdrop-blur-xl"
+                onClick={() => navigate(feature.path)}
+                data-testid={`feature-card-${index}`}
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br from-${feature.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
+                <div className="relative p-6">
+                  <div className={`w-14 h-14 rounded-xl bg-${feature.color}-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                    <feature.icon className={`w-7 h-7 text-${feature.color}-400`} />
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{feature.title}</h3>
+                  <p className="text-sm text-zinc-400 mb-4">{feature.description}</p>
+                  <div className={`flex items-center text-${feature.color}-400 group-hover:gap-2 transition-all`}>
+                    <span className="text-sm font-medium">Learn More</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
+      </motion.section>
+
+      {/* Programs Preview */}
+      {programs.length > 0 && (
+        <motion.section
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+          className="mb-12"
+          data-testid="programs-section"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">Featured Programs</h2>
+              <p className="text-zinc-400">Start your transformation today</p>
+            </div>
+            <Button
+              onClick={() => navigate('/user/sessions')}
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              View All Programs
+              <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
-        </div>
-      </nav>
 
-      {/* Hero Section */}
-      <section id="home" className="relative py-24 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-100 via-pink-100 to-orange-100 opacity-50"></div>
-        <div className="absolute inset-0">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-violet-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse"></div>
-          <div className="absolute top-40 right-10 w-72 h-72 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse delay-1000"></div>
-          <div className="absolute -bottom-8 left-1/3 w-72 h-72 bg-orange-300 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-pulse delay-2000"></div>
-        </div>
-        
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center px-6 py-2 bg-white/50 backdrop-blur-md rounded-full mb-8 border border-white shadow-lg">
-              <Sparkles className="h-4 w-4 text-violet-600 mr-2" />
-              <span className="text-gray-700 font-medium tracking-wide">Premium Wellness Experience</span>
-            </div>
-            
-            <h1 className="text-6xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent drop-shadow-lg">
-              FITSPHERE
-            </h1>
-            
-            <p className="text-2xl text-gray-700 mb-4 max-w-3xl mx-auto leading-relaxed">
-              Where Strength Meets Wellness
-            </p>
-            <p className="text-lg text-gray-600 mb-12 max-w-2xl mx-auto">
-              Personalized fitness, smart booking, and real-time progress tracking for your wellness journey.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-6 justify-center">
-              <Button 
-                onClick={handleGetStarted}
-                size="lg"
-                className="bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 hover:opacity-90 text-white text-lg px-10 py-7 rounded-full shadow-2xl hover:scale-105 transition-all"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {programs.map((program, index) => (
+              <motion.div
+                key={program.id}
+                variants={fadeInUp}
+                whileHover={{ y: -5 }}
               >
-                <Calendar className="h-5 w-5 mr-2" />
-                Book Your Session
-              </Button>
-              
-              <Button 
-                onClick={() => navigate('/user/shop')}
-                size="lg"
-                variant="outline"
-                className="text-lg px-10 py-7 rounded-full border-2 border-violet-600 text-violet-600 hover:bg-violet-50"
-              >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                Explore Products
-              </Button>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Featured Videos Section */}
-      {videos.length > 0 && (
-        <section id="videos" className="py-20 bg-white">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-8">
-              <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                Featured Workouts
-              </h2>
-              <p className="text-xl text-gray-600 mb-6">Discover our most popular training programs</p>
-              
-              {/* Guest/All Toggle */}
-              <div className="flex justify-center items-center gap-4 mb-8">
-                <Button
-                  onClick={handleToggleView}
-                  variant={viewMode === 'guest' ? 'default' : 'outline'}
-                  className={`rounded-full px-6 py-3 ${
-                    viewMode === 'guest' 
-                      ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white' 
-                      : 'border-2 border-violet-600 text-violet-600'
-                  }`}
-                  data-testid="browse-guest-toggle"
-                >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Browse as Guest (Free Videos)
-                </Button>
-                <Button
-                  onClick={handleToggleView}
-                  variant={viewMode === 'all' ? 'default' : 'outline'}
-                  className={`rounded-full px-6 py-3 ${
-                    viewMode === 'all' 
-                      ? 'bg-gradient-to-r from-violet-600 to-pink-600 text-white' 
-                      : 'border-2 border-violet-600 text-violet-600'
-                  }`}
-                  data-testid="login-see-all-toggle"
-                  disabled={!isAuthenticated}
-                >
-                  <Lock className="h-4 w-4 mr-2" />
-                  {isAuthenticated ? 'See All Videos' : 'Login to See All'}
-                </Button>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {videos.map((video) => (
-                <Card 
-                  key={video.id} 
-                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 cursor-pointer bg-white rounded-2xl group relative"
-                  onClick={() => handleVideoClick(video)}
-                  data-testid={`video-card-${video.id}`}
-                >
-                  {/* Premium/Free Badge */}
-                  <div className="absolute top-4 left-4 z-10">
-                    {video.is_free ? (
-                      <div className="bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg">
-                        FREE
-                      </div>
-                    ) : (
-                      <div className="bg-gradient-to-r from-purple-600 to-pink-600 text-white px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider shadow-lg flex items-center gap-1">
-                        <Star className="h-3 w-3" />
-                        PREMIUM
-                      </div>
+                <Card className="overflow-hidden bg-zinc-900 border border-white/10 hover:border-white/20 transition-all" data-testid={`program-card-${index}`}>
+                  <div className="relative h-48 bg-gradient-to-br from-cyan-500/20 to-purple-500/20">
+                    {program.image_url && (
+                      <img src={program.image_url} alt={program.title} className="w-full h-full object-cover" />
                     )}
                   </div>
-                  
-                  <div className="relative h-64 bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                    {video.thumbnail_url ? (
-                      <img 
-                        src={video.thumbnail_url} 
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <Play className="h-20 w-20 text-white group-hover:scale-110 transition-transform" />
-                    )}
-                    
-                    {/* Lock Overlay for Premium Videos */}
-                    {!video.is_free && !isAuthenticated && (
-                      <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-                        <div className="text-center">
-                          <Lock className="h-12 w-12 text-white mx-auto mb-2" />
-                          <p className="text-white font-semibold">Login to Watch</p>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="absolute inset-0 bg-black/20 group-hover:bg-black/30 transition-all"></div>
-                    <div className="absolute bottom-4 left-4 right-4">
-                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-4 py-2 flex items-center justify-center">
-                        <Heart className="h-4 w-4 text-pink-600 mr-2" />
-                        <span className="text-sm font-semibold text-gray-700">{video.view_count || 0} views</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <div className="text-xs font-semibold text-violet-600 mb-2">{video.category}</div>
-                    <h3 className="font-bold text-lg mb-2 text-gray-800">{video.title}</h3>
-                    <p className="text-gray-600 text-sm mb-3">{video.description?.substring(0, 80)}...</p>
-                    <div className="flex items-center justify-between text-sm text-gray-500">
-                      <span>{Math.floor(video.duration / 60)} min</span>
-                      <span className="px-3 py-1 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">
-                        {video.difficulty}
-                      </span>
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            <div className="text-center mt-12">
-              <Button 
-                onClick={() => navigate('/user/videos')}
-                className="bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:opacity-90 rounded-full px-10 py-6 text-lg font-semibold"
-                data-testid="view-all-videos-btn"
-              >
-                View All Training Videos
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Programs/Services Section */}
-      {programs.length > 0 && (
-        <section id="programs" className="py-20 bg-gradient-to-br from-violet-50 to-pink-50">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                Fitness Programs
-              </h2>
-              <p className="text-xl text-gray-600">Tailored fitness programs designed for every goal</p>
-            </div>
-
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {programs.map((program) => (
-                <Card 
-                  key={program.id} 
-                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 bg-white rounded-2xl group"
-                  data-testid={`program-card-${program.id}`}
-                >
-                  <div className="relative h-72 overflow-hidden">
-                    {program.image_url ? (
-                      <img 
-                        src={program.image_url} 
-                        alt={program.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-500 to-pink-500 flex items-center justify-center">
-                        <Award className="h-20 w-20 text-white" />
-                      </div>
-                    )}
-                    <div className="absolute top-4 left-4 bg-violet-600 text-white px-4 py-2 rounded-full text-sm font-semibold">
-                      {program.category}
-                    </div>
-                    <div className="absolute top-4 right-4 bg-orange-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                      {program.difficulty}
-                    </div>
-                  </div>
-                  <div className="p-6">
-                    <h3 className="font-bold text-xl mb-2 text-gray-800">
-                      {program.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{program.description}</p>
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <div className="text-xs text-gray-500 mb-1">Starting from</div>
-                        <span className="text-2xl font-bold bg-gradient-to-r from-violet-600 to-pink-600 bg-clip-text text-transparent">
-                          ₹{program.price}
-                        </span>
-                      </div>
-                      <Button 
-                        onClick={handleGetStarted}
-                        className="bg-gradient-to-r from-violet-600 to-pink-600 hover:opacity-90 text-white rounded-full"
+                  <div className="p-4">
+                    <h3 className="font-semibold text-white mb-2">{program.title}</h3>
+                    <p className="text-sm text-zinc-400 mb-3 line-clamp-2">{program.description}</p>
+                    <div className="flex items-center justify-between">
+                      <span className="text-lg font-bold text-cyan-400">₹{program.price}</span>
+                      <Button
+                        size="sm"
+                        onClick={() => navigate('/user/sessions')}
+                        className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white"
                       >
                         Book Now
                       </Button>
                     </div>
-                    <div className="flex items-center justify-between text-sm text-gray-600">
-                      <span>📅 {program.duration_weeks} weeks</span>
-                      <span>🏋️ {program.sessions_per_week}x/week</span>
-                    </div>
                   </div>
                 </Card>
-              ))}
-            </div>
+              </motion.div>
+            ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
-      {/* Products Section */}
-      {products.length > 0 && (
-        <section id="products" className="py-20 bg-white">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                Fitness Products
-              </h2>
-              <p className="text-xl text-gray-600">Premium equipment and supplements for your wellness journey</p>
+      {/* Videos Preview */}
+      {videos.length > 0 && (
+        <motion.section
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+          className="mb-12"
+          data-testid="videos-section"
+        >
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-3xl font-bold text-white mb-2">Training Videos</h2>
+              <p className="text-zinc-400">Free workout content to get you started</p>
             </div>
+            <Button
+              onClick={() => navigate('/user/videos')}
+              variant="outline"
+              className="border-white/20 bg-white/5 text-white hover:bg-white/10"
+            >
+              View All Videos
+              <ChevronRight className="w-4 h-4 ml-2" />
+            </Button>
+          </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {products.map((product) => (
-                <Card 
-                  key={product.id} 
-                  className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105 bg-white rounded-2xl group cursor-pointer"
-                  onClick={() => navigate('/user/shop')}
-                  data-testid={`product-card-${product.id}`}
-                >
-                  <div className="relative h-64 overflow-hidden bg-gray-100">
-                    {product.image_urls && product.image_urls[0] ? (
-                      <img 
-                        src={product.image_urls[0]} 
-                        alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-violet-400 to-pink-400 flex items-center justify-center">
-                        <ShoppingCart className="h-20 w-20 text-white" />
-                      </div>
-                    )}
-                    {product.discount > 0 && (
-                      <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold">
-                        {product.discount}% OFF
-                      </div>
-                    )}
-                  </div>
-                  <div className="p-6">
-                    <div className="text-xs font-semibold text-violet-600 mb-2">{product.category}</div>
-                    <h3 className="font-bold text-lg mb-2 text-gray-800">{product.name}</h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2">{product.description}</p>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        {product.discount > 0 ? (
-                          <>
-                            <span className="text-lg text-gray-400 line-through mr-2">₹{product.price}</span>
-                            <span className="text-2xl font-bold text-violet-600">
-                              ₹{(product.price * (1 - product.discount / 100)).toFixed(0)}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="text-2xl font-bold text-violet-600">₹{product.price}</span>
-                        )}
-                      </div>
-                      <Button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleGetStarted();
-                        }}
-                        size="sm"
-                        className="bg-gradient-to-r from-violet-600 to-pink-600 hover:opacity-90 text-white rounded-full"
-                      >
-                        Add to Cart
-                      </Button>
-                    </div>
-                    <div className="mt-3 text-sm text-gray-500">
-                      {product.stock > 0 ? (
-                        <span className="text-green-600 font-medium">✓ In Stock ({product.stock})</span>
-                      ) : (
-                        <span className="text-red-600 font-medium">✗ Out of Stock</span>
-                      )}
-                    </div>
-                  </div>
-                </Card>
-              ))}
-            </div>
-
-            <div className="text-center mt-12">
-              <Button 
-                onClick={() => navigate('/user/shop')}
-                className="bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:opacity-90 rounded-full px-10 py-6 text-lg font-semibold"
-                data-testid="view-all-products-btn"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {videos.map((video, index) => (
+              <motion.div
+                key={video.id}
+                variants={fadeInUp}
+                whileHover={{ y: -5 }}
               >
-                Browse All Products
-              </Button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Testimonials Section */}
-      {testimonials.length > 0 && (
-        <section id="testimonials" className="py-20 bg-gradient-to-br from-violet-50 via-pink-50 to-orange-50">
-          <div className="container mx-auto px-6">
-            <div className="text-center mb-16">
-              <h2 className="text-5xl font-bold mb-4 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
-                Success Stories
-              </h2>
-              <p className="text-xl text-gray-600">Real transformations from real women</p>
-            </div>
-
-            <div className="max-w-4xl mx-auto">
-              {testimonials.length > 0 && (
-                <Card className="bg-white/90 backdrop-blur-lg p-10 shadow-2xl rounded-3xl">
-                  <div className="flex flex-col items-center text-center">
-                    <div className="flex mb-4">
-                      {[...Array(testimonials[currentTestimonial]?.rating || 5)].map((_, i) => (
-                        <Star key={i} className="h-6 w-6 fill-yellow-400 text-yellow-400" />
-                      ))}
-                    </div>
-                    <p className="text-xl text-gray-700 mb-6 italic leading-relaxed">
-                      "{testimonials[currentTestimonial]?.comment}"
-                    </p>
-                    <div>
-                      <p className="font-bold text-lg text-gray-800">{testimonials[currentTestimonial]?.user_name}</p>
-                      <p className="text-sm text-gray-500">{testimonials[currentTestimonial]?.service_type}</p>
+                <Card className="overflow-hidden bg-zinc-900 border border-white/10 hover:border-white/20 transition-all cursor-pointer" onClick={() => navigate('/user/videos')} data-testid={`video-card-${index}`}>
+                  <div className="relative h-48 bg-gradient-to-br from-purple-500/20 to-pink-500/20">
+                    {video.thumbnail_url && (
+                      <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
+                    )}
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                        <PlayCircle className="w-8 h-8 text-white" fill="white" />
+                      </div>
                     </div>
                   </div>
-
-                  <div className="flex justify-center items-center mt-8 space-x-4">
-                    <Button 
-                      onClick={prevTestimonial} 
-                      variant="outline" 
-                      size="icon" 
-                      className="rounded-full"
-                    >
-                      ←
-                    </Button>
-                    <div className="flex space-x-2">
-                      {testimonials.map((_, index) => (
-                        <button
-                          key={index}
-                          onClick={() => setCurrentTestimonial(index)}
-                          className={`h-2 rounded-full transition-all ${
-                            index === currentTestimonial 
-                              ? 'w-8 bg-violet-600' 
-                              : 'w-2 bg-gray-300'
-                          }`}
-                        />
-                      ))}
+                  <div className="p-4">
+                    <h3 className="font-semibold text-white mb-2 line-clamp-1">{video.title}</h3>
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                      <span className="px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300">{video.difficulty}</span>
+                      <span>{video.duration} min</span>
                     </div>
-                    <Button 
-                      onClick={nextTestimonial} 
-                      variant="outline" 
-                      size="icon" 
-                      className="rounded-full"
-                    >
-                      →
-                    </Button>
                   </div>
                 </Card>
-              )}
-            </div>
+              </motion.div>
+            ))}
           </div>
-        </section>
+        </motion.section>
       )}
 
       {/* CTA Section */}
-      <section className="py-20 bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 relative overflow-hidden">
-        <div className="absolute inset-0 bg-black/10"></div>
-        <div className="container mx-auto px-6 relative z-10">
-          <div className="max-w-3xl mx-auto text-center text-white">
-            <h2 className="text-5xl font-bold mb-6">
-              Start Your Fitness Transformation Today
-            </h2>
-            <p className="text-xl mb-10 text-white/90">
-              Book sessions, track progress, and achieve your goals with expert guidance
-            </p>
-            <Button 
+      <motion.section
+        variants={fadeInUp}
+        initial="initial"
+        animate="animate"
+        className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-cyan-600 via-blue-600 to-purple-600 p-12 text-center"
+        data-testid="cta-section"
+      >
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNnoiIHN0cm9rZT0iI2ZmZiIgc3Ryb2tlLW9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-20" />
+        
+        <div className="relative z-10 max-w-3xl mx-auto">
+          <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 rounded-full bg-white/10 backdrop-blur-sm">
+            <Star className="w-4 h-4 text-white" />
+            <span className="text-sm font-semibold text-white">Join Thousands of Happy Members</span>
+          </div>
+
+          <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            Ready to Transform Your Life?
+          </h2>
+          <p className="text-xl text-white/90 mb-8">
+            Start your fitness journey today with personalized training, expert guidance, and premium equipment.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button
               onClick={handleGetStarted}
-              size="lg"
-              className="bg-white text-violet-600 hover:bg-gray-100 text-xl px-12 py-8 rounded-full shadow-2xl hover:scale-105 transition-all font-semibold"
-              data-testid="cta-reserve-btn"
+              className="bg-white text-cyan-600 hover:bg-white/90 px-8 py-6 text-lg rounded-full font-semibold"
+              data-testid="cta-start-btn"
             >
-              Reserve Your Slot
+              <Zap className="w-5 h-5 mr-2" />
+              Start Your Journey
+            </Button>
+            <Button
+              onClick={() => navigate('/user/shop')}
+              variant="outline"
+              className="border-white/30 bg-white/10 text-white hover:bg-white/20 px-8 py-6 text-lg rounded-full backdrop-blur-sm"
+              data-testid="cta-shop-btn"
+            >
+              <ShoppingBag className="w-5 h-5 mr-2" />
+              Shop Gear
             </Button>
           </div>
         </div>
-      </section>
-
-      {/* Authentication Modal */}
-      {showAuthModal && (
-        <div 
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowAuthModal(false)}
-        >
-          <Card 
-            className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-            data-testid="auth-modal"
-          >
-            <div className="text-center">
-              <div className="w-20 h-20 bg-gradient-to-br from-violet-600 to-pink-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Lock className="h-10 w-10 text-white" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-800 mb-4">Premium Content</h3>
-              <p className="text-gray-600 mb-8">
-                This video requires a membership. Sign up or log in to access our full library of premium workouts.
-              </p>
-              <div className="flex flex-col gap-4">
-                <Button 
-                  onClick={() => navigate('/login')}
-                  className="bg-gradient-to-r from-violet-600 to-pink-600 text-white hover:opacity-90 rounded-full py-6 text-lg font-semibold"
-                  data-testid="modal-login-btn"
-                >
-                  Log In
-                </Button>
-                <Button 
-                  onClick={() => navigate('/login')}
-                  variant="outline"
-                  className="border-2 border-violet-600 text-violet-600 hover:bg-violet-50 rounded-full py-6 text-lg font-semibold"
-                  data-testid="modal-signup-btn"
-                >
-                  Sign Up
-                </Button>
-                <Button 
-                  onClick={() => setShowAuthModal(false)}
-                  variant="ghost"
-                  className="text-gray-500 hover:text-gray-700"
-                  data-testid="modal-close-btn"
-                >
-                  Browse Free Videos Instead
-                </Button>
-              </div>
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Footer */}
-      <footer className="bg-gray-900 text-white py-16">
-        <div className="container mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-12">
-            <div>
-              <h3 className="text-2xl font-bold bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent mb-4">
-                FitSphere
-              </h3>
-              <p className="text-gray-400">
-                Empowering women through premium fitness and wellness experiences. Join our community today.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Quick Links</h4>
-              <ul className="space-y-2 text-gray-400">
-                <li><a href="#programs" className="hover:text-violet-400 transition">Programs</a></li>
-                <li><a href="#products" className="hover:text-violet-400 transition">Shop</a></li>
-                <li><a href="#videos" className="hover:text-violet-400 transition">Videos</a></li>
-                <li><button onClick={() => navigate('/login')} className="hover:text-violet-400 transition">Login</button></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="text-lg font-semibold mb-4">Contact</h4>
-              <div className="space-y-3 text-gray-400">
-                <div className="flex items-center space-x-3">
-                  <Phone className="h-5 w-5 text-violet-400" />
-                  <span>+91 98765 43210</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <Mail className="h-5 w-5 text-violet-400" />
-                  <span>hello@fitsphere.com</span>
-                </div>
-                <div className="flex space-x-4 mt-4">
-                  <Instagram className="h-6 w-6 hover:text-pink-400 cursor-pointer transition" />
-                  <Facebook className="h-6 w-6 hover:text-blue-400 cursor-pointer transition" />
-                  <Twitter className="h-6 w-6 hover:text-blue-300 cursor-pointer transition" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="border-t border-gray-800 mt-12 pt-8 text-center text-gray-500">
-            <p>© 2025 FitSphere. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
-    </div>
+      </motion.section>
+    </UserLayout>
   );
 }
