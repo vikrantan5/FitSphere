@@ -4,14 +4,35 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
-  Dumbbell, Package, Calendar, ShoppingBag, User, LogOut, 
-  Bell, ChevronRight, Clock, CheckCircle, XCircle, Truck
+  Package, Calendar, ShoppingBag, LogOut, 
+  ChevronRight, Clock, Truck, PlayCircle, MessageSquareText, Star,
+  Dumbbell, Bell, User, Settings, HelpCircle, Gift, Award,
+  TrendingUp, Shield, Zap, Target, Activity
 } from 'lucide-react';
 import { toast } from 'sonner';
 import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
+
+// Animation variants
+const fadeInUp = {
+  initial: { opacity: 0, y: 20 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.5 }
+};
+
+const staggerContainer = {
+  animate: {
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -19,6 +40,18 @@ export default function UserDashboard() {
   const [orders, setOrders] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: 'Your order #ORD123 has been shipped', type: 'order', read: false },
+    { id: 2, message: 'New workout video available: HIIT Cardio', type: 'video', read: false },
+    { id: 3, message: 'Your session with Trainer Sarah is tomorrow', type: 'booking', read: true }
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [stats, setStats] = useState({
+    totalWorkouts: 24,
+    caloriesBurned: 3240,
+    streakDays: 7,
+    achievements: 12
+  });
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -53,6 +86,8 @@ export default function UserDashboard() {
       if (error.response?.status === 401) {
         toast.error('Session expired. Please login again.');
         handleLogout();
+      } else {
+        toast.error('Failed to load dashboard data');
       }
     } finally {
       setLoading(false);
@@ -69,40 +104,60 @@ export default function UserDashboard() {
 
   const getOrderStatusColor = (status) => {
     const colors = {
-      pending: 'text-yellow-600 bg-yellow-50',
-      processing: 'text-blue-600 bg-blue-50',
-      shipped: 'text-purple-600 bg-purple-50',
-      delivered: 'text-green-600 bg-green-50',
-      cancelled: 'text-red-600 bg-red-50'
+      pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      processing: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      shipped: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      delivered: 'bg-green-500/20 text-green-300 border-green-500/30',
+      cancelled: 'bg-red-500/20 text-red-300 border-red-500/30'
     };
-    return colors[status] || 'text-gray-600 bg-gray-50';
+    return colors[status] || 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30';
   };
 
   const getPaymentStatusColor = (status) => {
     const colors = {
-      pending: 'text-yellow-600 bg-yellow-50',
-      success: 'text-green-600 bg-green-50',
-      failed: 'text-red-600 bg-red-50'
+      pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      success: 'bg-green-500/20 text-green-300 border-green-500/30',
+      failed: 'bg-red-500/20 text-red-300 border-red-500/30'
     };
-    return colors[status] || 'text-gray-600 bg-gray-50';
+    return colors[status] || 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30';
   };
 
   const getBookingStatusColor = (status) => {
     const colors = {
-      pending: 'text-yellow-600 bg-yellow-50',
-      confirmed: 'text-green-600 bg-green-50',
-      cancelled: 'text-red-600 bg-red-50',
-      completed: 'text-blue-600 bg-blue-50'
+      pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      confirmed: 'bg-green-500/20 text-green-300 border-green-500/30',
+      cancelled: 'bg-red-500/20 text-red-300 border-red-500/30',
+      completed: 'bg-blue-500/20 text-blue-300 border-blue-500/30'
     };
-    return colors[status] || 'text-gray-600 bg-gray-50';
+    return colors[status] || 'bg-zinc-500/20 text-zinc-300 border-zinc-500/30';
   };
+
+  const markNotificationAsRead = (id) => {
+    setNotifications(prev =>
+      prev.map(notif =>
+        notif.id === id ? { ...notif, read: true } : notif
+      )
+    );
+  };
+
+  const unreadCount = notifications.filter(n => !n.read).length;
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 via-pink-50 to-orange-50">
+      <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-purple-950/30 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-violet-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your dashboard...</p>
+          <motion.div
+            animate={{ rotate: 360 }}
+            transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+            className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full mx-auto mb-4"
+          />
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-zinc-300"
+          >
+            Loading your dashboard...
+          </motion.p>
         </div>
       </div>
     );
@@ -111,291 +166,599 @@ export default function UserDashboard() {
   if (!user) return null;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-pink-50 to-orange-50/30 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-purple-950/30 relative overflow-hidden">
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-violet-400/20 to-pink-400/20 rounded-full blur-3xl animate-pulse"></div>
-        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-gradient-to-br from-orange-400/20 to-violet-400/20 rounded-full blur-3xl animate-pulse delay-1000"></div>
-        <div className="absolute -bottom-40 right-1/4 w-80 h-80 bg-gradient-to-br from-pink-400/20 to-orange-400/20 rounded-full blur-3xl animate-pulse delay-2000"></div>
+        <div className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-full blur-3xl animate-pulse" />
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full blur-3xl animate-pulse delay-1000" />
+        <div className="absolute -bottom-40 left-1/3 w-96 h-96 bg-gradient-to-br from-amber-500/20 to-orange-500/20 rounded-full blur-3xl animate-pulse delay-2000" />
       </div>
 
-      {/* Top Navigation Bar */}
-      <nav className="relative bg-white/80 backdrop-blur-xl border-b border-white/20 shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate('/')}>
-              <div className="w-10 h-10 bg-gradient-to-br from-violet-500 via-pink-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
-                <Dumbbell className="w-6 h-6 text-white" />
+      {/* Top Navigation */}
+      <nav className="relative bg-zinc-900/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            {/* Logo */}
+            <motion.div 
+              initial={{ x: -20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              className="flex items-center space-x-3 cursor-pointer group"
+              onClick={() => navigate('/')}
+            >
+              <div className="relative">
+                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-cyan-500/20 group-hover:scale-105 transition-transform">
+                  <Dumbbell className="w-6 h-6 text-white" />
+                </div>
+                <motion.div 
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                  className="absolute -top-1 -right-1 w-3 h-3 bg-green-500 rounded-full border-2 border-zinc-900"
+                />
               </div>
               <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
                   FitSphere
                 </h1>
-                <p className="text-xs text-gray-500">Your Wellness Journey</p>
+                <p className="text-xs text-zinc-400">Enterprise Dashboard</p>
               </div>
-            </div>
-            
+            </motion.div>
+
+            {/* Right Section */}
             <div className="flex items-center space-x-4">
-              <button className="relative p-2 hover:bg-gray-100 rounded-full transition-all">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-pink-500 rounded-full"></span>
-              </button>
-              <Button 
-                onClick={handleLogout}
-                variant="outline" 
-                size="sm"
-                className="gap-2 hover:bg-red-50 hover:text-red-600 hover:border-red-200"
-                data-testid="logout-btn"
-              >
-                <LogOut className="w-4 h-4" />
-                Logout
-              </Button>
+              {/* Notifications */}
+              <div className="relative">
+                <motion.button 
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="relative p-2 hover:bg-white/10 rounded-xl transition-all"
+                  onClick={() => setShowNotifications(!showNotifications)}
+                >
+                  <Bell className="w-5 h-5 text-zinc-300" />
+                  {unreadCount > 0 && (
+                    <motion.span 
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      className="absolute top-1 right-1 w-4 h-4 bg-cyan-500 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+                    >
+                      {unreadCount}
+                    </motion.span>
+                  )}
+                </motion.button>
+
+                {/* Notifications Dropdown */}
+                <AnimatePresence>
+                  {showNotifications && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="absolute right-0 mt-2 w-80 bg-zinc-900 border border-white/10 rounded-2xl shadow-2xl overflow-hidden z-50"
+                    >
+                      <div className="p-4 border-b border-white/10">
+                        <h3 className="font-semibold text-white">Notifications</h3>
+                      </div>
+                      <div className="max-h-96 overflow-y-auto">
+                        {notifications.map((notif) => (
+                          <motion.div
+                            key={notif.id}
+                            whileHover={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
+                            className={`p-4 cursor-pointer ${!notif.read ? 'bg-white/5' : ''}`}
+                            onClick={() => markNotificationAsRead(notif.id)}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`p-2 rounded-xl ${
+                                notif.type === 'order' ? 'bg-blue-500/20' :
+                                notif.type === 'video' ? 'bg-purple-500/20' : 'bg-amber-500/20'
+                              }`}>
+                                {notif.type === 'order' && <Package className="w-4 h-4 text-blue-300" />}
+                                {notif.type === 'video' && <PlayCircle className="w-4 h-4 text-purple-300" />}
+                                {notif.type === 'booking' && <Calendar className="w-4 h-4 text-amber-300" />}
+                              </div>
+                              <div className="flex-1">
+                                <p className="text-sm text-zinc-200">{notif.message}</p>
+                                <p className="text-xs text-zinc-500 mt-1">2 min ago</p>
+                              </div>
+                              {!notif.read && (
+                                <div className="w-2 h-2 bg-cyan-500 rounded-full" />
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              {/* User Menu */}
+              <motion.div whileHover={{ scale: 1.05 }} className="relative group">
+                <Button
+                  variant="ghost"
+                  className="flex items-center gap-3 px-3 py-2 hover:bg-white/10 rounded-xl"
+                >
+                  <Avatar className="w-8 h-8 ring-2 ring-cyan-500/50">
+                    <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white">
+                      {user.name?.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="hidden md:block text-left">
+                    <p className="text-sm font-medium text-white">{user.name}</p>
+                    <p className="text-xs text-zinc-400">Premium Member</p>
+                  </div>
+                </Button>
+
+                {/* Dropdown Menu */}
+                <div className="absolute right-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl shadow-2xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                  <div className="p-2">
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
+                      <User className="w-4 h-4" />
+                      Profile
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
+                      <Settings className="w-4 h-4" />
+                      Settings
+                    </button>
+                    <button className="w-full flex items-center gap-2 px-3 py-2 text-sm text-zinc-300 hover:bg-white/5 rounded-lg">
+                      <HelpCircle className="w-4 h-4" />
+                      Help
+                    </button>
+                    <div className="border-t border-white/10 my-2" />
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-red-500/10 rounded-lg"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
             </div>
           </div>
         </div>
       </nav>
 
-      <div className="container mx-auto px-6 py-8 relative z-10">
+      {/* Main Content */}
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 relative z-10">
         {/* Welcome Section */}
-        <Card className="relative overflow-hidden bg-gradient-to-br from-white/90 via-white/80 to-white/70 backdrop-blur-2xl border-white/20 shadow-2xl mb-8">
-          <div className="p-8">
-            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-              <div className="flex items-center gap-6">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-500 via-pink-500 to-orange-500 p-1 shadow-xl">
-                    <div className="w-full h-full rounded-full bg-white flex items-center justify-center text-3xl font-bold text-gray-700">
-                      {user.name?.charAt(0).toUpperCase() || 'U'}
+        <motion.div
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+        >
+          <Card className="relative overflow-hidden bg-gradient-to-br from-zinc-900/90 via-zinc-900/80 to-zinc-900/90 border border-white/10 backdrop-blur-xl mb-8">
+            <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/10 via-purple-500/10 to-pink-500/10" />
+            <div className="relative p-8">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+                <div className="flex items-center gap-6">
+                  <motion.div 
+                    whileHover={{ scale: 1.1 }}
+                    className="relative"
+                  >
+                    <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-500 via-blue-500 to-purple-600 p-1">
+                      <div className="w-full h-full rounded-full bg-zinc-900 flex items-center justify-center">
+                        <span className="text-3xl font-bold text-white">
+                          {user.name?.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
                     </div>
+                    <motion.div 
+                      animate={{ scale: [1, 1.2, 1] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-zinc-900"
+                    />
+                  </motion.div>
+                  
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <Badge className="bg-cyan-500/20 text-cyan-300 border-cyan-500/30">
+                        <Zap className="w-3 h-3 mr-1" />
+                        Active
+                      </Badge>
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30">
+                        <Award className="w-3 h-3 mr-1" />
+                        Premium
+                      </Badge>
+                    </div>
+                    <h2 className="text-3xl font-bold text-white mb-1">
+                      Welcome back, {user.name}! 👋
+                    </h2>
+                    <p className="text-zinc-300 mb-2">{user.email}</p>
+                    {user.phone && (
+                      <p className="text-sm text-zinc-400 flex items-center gap-2">
+                        <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full" />
+                        {user.phone}
+                      </p>
+                    )}
                   </div>
                 </div>
-                
-                <div>
-                  <h2 className="text-3xl font-bold bg-gradient-to-r from-violet-600 via-pink-600 to-orange-600 bg-clip-text text-transparent mb-1">
-                    Welcome back, {user.name}! 👋
-                  </h2>
-                  <p className="text-gray-600 mb-2">{user.email}</p>
-                  {user.phone && <p className="text-sm text-gray-500">📱 {user.phone}</p>}
+
+                {/* Stats Cards */}
+                <div className="grid grid-cols-2 gap-4 min-w-[300px]">
+                  <motion.div 
+                    whileHover={{ y: -5 }}
+                    className="bg-gradient-to-br from-cyan-500 to-blue-600 rounded-2xl p-4 text-white cursor-pointer"
+                    onClick={() => navigate('/user/orders')}
+                  >
+                    <ShoppingBag className="w-6 h-6 mb-2 opacity-80" />
+                    <p className="text-2xl font-bold">{orders.length}</p>
+                    <p className="text-xs opacity-90">Total Orders</p>
+                  </motion.div>
+                  <motion.div 
+                    whileHover={{ y: -5 }}
+                    className="bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl p-4 text-white cursor-pointer"
+                    onClick={() => navigate('/user/bookings')}
+                  >
+                    <Calendar className="w-6 h-6 mb-2 opacity-80" />
+                    <p className="text-2xl font-bold">{bookings.length}</p>
+                    <p className="text-xs opacity-90">Bookings</p>
+                  </motion.div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <Card className="p-4 bg-gradient-to-br from-violet-500 to-purple-600 text-white hover:scale-105 transition-transform cursor-pointer" onClick={() => navigate('/user/shop')}>
-                  <ShoppingBag className="w-8 h-8 mb-2" />
-                  <div className="text-2xl font-bold">{orders.length}</div>
-                  <div className="text-sm opacity-90">Total Orders</div>
-                </Card>
-                <Card className="p-4 bg-gradient-to-br from-pink-500 to-orange-500 text-white hover:scale-105 transition-transform cursor-pointer" onClick={() => navigate('/user/sessions')}>
-                  <Calendar className="w-8 h-8 mb-2" />
-                  <div className="text-2xl font-bold">{bookings.length}</div>
-                  <div className="text-sm opacity-90">Total Bookings</div>
-                </Card>
+              {/* Progress Stats */}
+              <div className="grid grid-cols-4 gap-4 mt-8">
+                {[
+                  { label: 'Workouts', value: stats.totalWorkouts, icon: Activity, color: 'cyan' },
+                  { label: 'Calories', value: stats.caloriesBurned, icon: Target, color: 'purple' },
+                  { label: 'Streak', value: stats.streakDays, icon: Zap, color: 'amber' },
+                  { label: 'Achievements', value: stats.achievements, icon: Award, color: 'emerald' }
+                ].map((stat, index) => (
+                  <motion.div
+                    key={index}
+                    whileHover={{ scale: 1.05 }}
+                    className="bg-white/5 rounded-xl p-3 border border-white/10"
+                  >
+                    <stat.icon className={`w-4 h-4 text-${stat.color}-400 mb-1`} />
+                    <p className="text-lg font-bold text-white">{stat.value}</p>
+                    <p className="text-xs text-zinc-400">{stat.label}</p>
+                  </motion.div>
+                ))}
               </div>
             </div>
-          </div>
-        </Card>
-
-        {/* Quick Actions */}
-        <div className="grid md:grid-cols-4 gap-4 mb-8">
-          <Card 
-            className="p-6 bg-white hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-            onClick={() => navigate('/user/shop')}
-            data-testid="shop-card"
-          >
-            <ShoppingBag className="w-12 h-12 text-violet-600 mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold text-lg mb-2">Shop Products</h3>
-            <p className="text-sm text-gray-600">Browse fitness equipment & supplements</p>
-            <ChevronRight className="w-5 h-5 text-violet-600 mt-2" />
           </Card>
+        </motion.div>
 
-          <Card 
-            className="p-6 bg-white hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-            onClick={() => navigate('/user/sessions')}
-            data-testid="sessions-card"
-          >
-            <Calendar className="w-12 h-12 text-pink-600 mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold text-lg mb-2">Book Session</h3>
-            <p className="text-sm text-gray-600">Schedule training with experts</p>
-            <ChevronRight className="w-5 h-5 text-pink-600 mt-2" />
-          </Card>
-
-          <Card 
-            className="p-6 bg-white hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-            onClick={() => navigate('/user/videos')}
-            data-testid="videos-card"
-          >
-            <Package className="w-12 h-12 text-orange-600 mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold text-lg mb-2">Training Videos</h3>
-            <p className="text-sm text-gray-600">Access workout library</p>
-            <ChevronRight className="w-5 h-5 text-orange-600 mt-2" />
-          </Card>
-
-          <Card 
-            className="p-6 bg-white hover:shadow-xl transition-all cursor-pointer group hover:scale-105"
-            onClick={() => navigate('/user/cart')}
-            data-testid="cart-card"
-          >
-            <ShoppingBag className="w-12 h-12 text-teal-600 mb-4 group-hover:scale-110 transition-transform" />
-            <h3 className="font-bold text-lg mb-2">My Cart</h3>
-            <p className="text-sm text-gray-600">View cart items & checkout</p>
-            <ChevronRight className="w-5 h-5 text-teal-600 mt-2" />
-          </Card>
-        </div>
+        {/* Quick Actions Grid */}
+        <motion.section 
+          variants={staggerContainer}
+          initial="initial"
+          animate="animate"
+          className="mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4"
+        >
+          {[
+            {
+              icon: ShoppingBag,
+              title: 'Shop Products',
+              description: 'Equipment & supplements',
+              color: 'cyan',
+              path: '/user/shop',
+              testId: 'shop-card'
+            },
+            {
+              icon: Calendar,
+              title: 'Book Session',
+              description: 'Personal training',
+              color: 'blue',
+              path: '/user/sessions',
+              testId: 'sessions-card'
+            },
+            {
+              icon: PlayCircle,
+              title: 'Training Videos',
+              description: 'On-demand workouts',
+              color: 'purple',
+              path: '/user/videos',
+              testId: 'videos-card'
+            },
+            {
+              icon: Package,
+              title: 'Cart & Checkout',
+              description: 'Review & purchase',
+              color: 'emerald',
+              path: '/user/cart',
+              testId: 'cart-card'
+            },
+            {
+              icon: MessageSquareText,
+              title: 'Need Support',
+              description: 'Chat with us',
+              color: 'amber',
+              path: '/user/support',
+              testId: 'support-card'
+            }
+          ].map((action, index) => (
+            <motion.div
+              key={index}
+              variants={fadeInUp}
+              whileHover={{ y: -5, scale: 1.02 }}
+            >
+              <Card 
+                className="group cursor-pointer overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-900/90 border border-white/10 hover:border-white/20 transition-all"
+                onClick={() => navigate(action.path)}
+                data-testid={action.testId}
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br from-${action.color}-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity`} />
+                <div className="relative p-6">
+                  <div className={`w-12 h-12 rounded-xl bg-${action.color}-500/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform`}>
+                    <action.icon className={`w-6 h-6 text-${action.color}-400`} />
+                  </div>
+                  <h3 className="text-lg font-semibold text-white mb-2">{action.title}</h3>
+                  <p className="text-sm text-zinc-400 mb-4">{action.description}</p>
+                  <div className={`flex items-center text-${action.color}-400 group-hover:gap-2 transition-all`}>
+                    <span className="text-sm">Get Started</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </div>
+                </div>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.section>
 
         {/* Orders and Bookings Tabs */}
-        <Card className="bg-white/90 backdrop-blur-xl shadow-xl">
-          <Tabs defaultValue="orders" className="p-6">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
-              <TabsTrigger value="orders" className="text-lg" data-testid="orders-tab">
-                <Package className="w-5 h-5 mr-2" />
-                My Orders
-              </TabsTrigger>
-              <TabsTrigger value="bookings" className="text-lg" data-testid="bookings-tab">
-                <Calendar className="w-5 h-5 mr-2" />
-                My Bookings
-              </TabsTrigger>
-            </TabsList>
+        <motion.div
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+        >
+          <Card className="bg-zinc-900/90 border border-white/10 backdrop-blur-xl">
+            <Tabs defaultValue="orders" className="p-6">
+              <TabsList className="grid w-full grid-cols-2 mb-6 bg-zinc-800/50 p-1 rounded-xl">
+                <TabsTrigger 
+                  value="orders" 
+                  className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all"
+                  data-testid="orders-tab"
+                >
+                  <Package className="w-4 h-4 mr-2" />
+                  My Orders
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="bookings" 
+                  className="data-[state=active]:bg-cyan-500 data-[state=active]:text-white rounded-lg transition-all"
+                  data-testid="bookings-tab"
+                >
+                  <Calendar className="w-4 h-4 mr-2" />
+                  My Bookings
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="orders" className="space-y-4">
-              {orders.length === 0 ? (
-                <div className="text-center py-12">
-                  <Package className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No orders yet</p>
-                  <Button onClick={() => navigate('/user/shop')} className="bg-gradient-to-r from-violet-600 to-pink-600 text-white">
-                    Start Shopping
-                  </Button>
-                </div>
-              ) : (
-                orders.map((order) => (
-                  <Card key={order.id} className="p-6 hover:shadow-lg transition-all" data-testid={`order-${order.id}`}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-bold text-lg mb-1">Order #{order.id.substring(0, 8)}</h3>
-                        <p className="text-sm text-gray-500">{new Date(order.created_at).toLocaleDateString()}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-violet-600">₹{order.total_amount}</div>
-                        <div className="flex gap-2 mt-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getOrderStatusColor(order.order_status)}`}>
-                            {order.order_status}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusColor(order.payment_status)}`}>
-                            {order.payment_status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <h4 className="font-semibold mb-3 text-gray-700">Order Items:</h4>
-                      <div className="space-y-2">
-                        {order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                            <div>
-                              <p className="font-medium">{item.product_name}</p>
-                              <p className="text-sm text-gray-500">Qty: {item.quantity}</p>
-                            </div>
-                            <p className="font-semibold text-violet-600">₹{item.price * item.quantity}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="mt-4 p-4 bg-gray-50 rounded-lg">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
-                        <div>
-                          <p className="text-gray-500">Customer Name</p>
-                          <p className="font-medium">{order.customer_name}</p>
-                        </div>
-                          <div>
-                          <p className="text-gray-500">Email</p>
-                          <p className="font-medium">{order.customer_email}</p>
-                        </div>
-                        <div>
-                          <p className="text-gray-500">Phone</p>
-                          <p className="font-medium">{order.customer_phone}</p>
-                        </div>
-                        <div >
-                          <p className="text-gray-500">Shipping Address</p>
-                          <p className="font-medium">{order.shipping_address}</p>
-                        </div>
-                         {order.estimated_delivery_date && order.estimated_delivery_time && (
-                          <div className="col-span-2 mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                            <div className="flex items-center gap-2">
-                              <Truck className="w-5 h-5 text-green-600" />
+              <TabsContent value="orders" className="space-y-4">
+                {orders.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-16 bg-white/5 rounded-2xl border border-dashed border-white/20"
+                  >
+                    <Package className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                    <p className="text-zinc-300 mb-4">No orders yet</p>
+                    <Button 
+                      onClick={() => navigate('/user/shop')}
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90"
+                    >
+                      Start Shopping
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <AnimatePresence>
+                    {orders.map((order, index) => (
+                      <motion.div
+                        key={order.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <Card className="border border-white/10 bg-zinc-800/50 hover:bg-zinc-800/70 transition-all" data-testid={`order-${order.id}`}>
+                          <div className="p-6">
+                            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
                               <div>
-                                <p className="text-xs text-green-600 font-semibold uppercase tracking-wider">Estimated Delivery</p>
-                                <p className="font-bold text-green-800">
-                                  {new Date(order.estimated_delivery_date).toLocaleDateString()} at {order.estimated_delivery_time}
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-lg font-semibold text-white" data-testid={`order-id-${order.id}`}>
+                                    Order #{order.id.substring(0, 8)}
+                                  </h3>
+                                  <Badge className={getOrderStatusColor(order.order_status)}>
+                                    {order.order_status}
+                                  </Badge>
+                                  <Badge className={getPaymentStatusColor(order.payment_status)}>
+                                    {order.payment_status}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-zinc-400" data-testid={`order-date-${order.id}`}>
+                                  {new Date(order.created_at).toLocaleDateString('en-US', {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                                  ₹{order.total_amount}
                                 </p>
                               </div>
                             </div>
+
+                            <div className="space-y-3" data-testid={`order-items-${order.id}`}>
+                              {order.items.map((item, idx) => (
+                                <div key={idx} className="flex items-center justify-between bg-white/5 rounded-xl p-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-gradient-to-br from-cyan-500/20 to-blue-500/20 rounded-lg flex items-center justify-center">
+                                      <Package className="w-5 h-5 text-cyan-400" />
+                                    </div>
+                                    <div>
+                                      <p className="font-medium text-white" data-testid={`order-item-name-${order.id}-${idx}`}>
+                                        {item.product_name}
+                                      </p>
+                                      <p className="text-sm text-zinc-400">Quantity: {item.quantity}</p>
+                                    </div>
+                                  </div>
+                                  <p className="font-semibold text-cyan-400" data-testid={`order-item-price-${order.id}-${idx}`}>
+                                    ₹{item.price * item.quantity}
+                                  </p>
+                                </div>
+                              ))}
+                            </div>
+
+                            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-white/5 rounded-xl">
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Customer Information</p>
+                                <p className="text-sm text-white" data-testid={`order-customer-name-${order.id}`}>
+                                  {order.customer_name}
+                                </p>
+                                <p className="text-sm text-zinc-400" data-testid={`order-customer-email-${order.id}`}>
+                                  {order.customer_email}
+                                </p>
+                                <p className="text-sm text-zinc-400" data-testid={`order-customer-phone-${order.id}`}>
+                                  {order.customer_phone}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Shipping Address</p>
+                                <p className="text-sm text-zinc-400" data-testid={`order-shipping-address-${order.id}`}>
+                                  {order.shipping_address}
+                                </p>
+                              </div>
+                            </div>
+
+                            {order.estimated_delivery_date && order.estimated_delivery_time && (
+                              <motion.div 
+                                initial={{ opacity: 0, y: 10 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-4 p-4 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-xl"
+                                data-testid={`order-delivery-estimate-${order.id}`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Truck className="w-5 h-5 text-emerald-400" />
+                                  <div>
+                                    <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">
+                                      Estimated Delivery
+                                    </p>
+                                    <p className="text-sm text-emerald-300">
+                                      {new Date(order.estimated_delivery_date).toLocaleDateString('en-US', {
+                                        weekday: 'long',
+                                        year: 'numeric',
+                                        month: 'long',
+                                        day: 'numeric'
+                                      })} at {order.estimated_delivery_time}
+                                    </p>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </TabsContent>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                )}
+              </TabsContent>
 
-            <TabsContent value="bookings" className="space-y-4">
-              {bookings.length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500 mb-4">No bookings yet</p>
-                  <Button onClick={() => navigate('/user/sessions')} className="bg-gradient-to-r from-violet-600 to-pink-600 text-white">
-                    Book a Session
-                  </Button>
-                </div>
-              ) : (
-                bookings.map((booking) => (
-                  <Card key={booking.id} className="p-6 hover:shadow-lg transition-all" data-testid={`booking-${booking.id}`}>
-                    <div className="flex justify-between items-start mb-4">
-                      <div>
-                        <h3 className="font-bold text-lg mb-1">{booking.program_title}</h3>
-                        <p className="text-sm text-gray-500">Booking #{booking.id.substring(0, 8)}</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-pink-600">₹{booking.amount}</div>
-                        <div className="flex gap-2 mt-2">
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getBookingStatusColor(booking.status)}`}>
-                            {booking.status}
-                          </span>
-                          <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getPaymentStatusColor(booking.payment_status)}`}>
-                            {booking.payment_status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
+              <TabsContent value="bookings" className="space-y-4">
+                {bookings.length === 0 ? (
+                  <motion.div 
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="text-center py-16 bg-white/5 rounded-2xl border border-dashed border-white/20"
+                  >
+                    <Calendar className="w-16 h-16 text-zinc-600 mx-auto mb-4" />
+                    <p className="text-zinc-300 mb-4">No bookings yet</p>
+                    <Button 
+                      onClick={() => navigate('/user/sessions')}
+                      className="bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:opacity-90"
+                    >
+                      Book a Session
+                    </Button>
+                  </motion.div>
+                ) : (
+                  <AnimatePresence>
+                    {bookings.map((booking, index) => (
+                      <motion.div
+                        key={booking.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <Card className="border border-white/10 bg-zinc-800/50 hover:bg-zinc-800/70 transition-all" data-testid={`booking-${booking.id}`}>
+                          <div className="p-6">
+                            <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+                              <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                  <h3 className="text-lg font-semibold text-white" data-testid={`booking-program-${booking.id}`}>
+                                    {booking.program_title}
+                                  </h3>
+                                  <Badge className={getBookingStatusColor(booking.status)}>
+                                    {booking.status}
+                                  </Badge>
+                                  <Badge className={getPaymentStatusColor(booking.payment_status)}>
+                                    {booking.payment_status}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm text-zinc-400" data-testid={`booking-id-${booking.id}`}>
+                                  Booking #{booking.id.substring(0, 8)}
+                                </p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400">
+                                  ₹{booking.amount}
+                                </p>
+                              </div>
+                            </div>
 
-                    <div className="grid md:grid-cols-2 gap-4 p-4 bg-gradient-to-r from-violet-50 to-pink-50 rounded-lg">
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Trainer</p>
-                        <p className="font-semibold text-gray-800">👤 {booking.trainer_name}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-gray-600 mb-1">Date & Time</p>
-                        <p className="font-semibold text-gray-800">
-                          📅 {booking.booking_date} <Clock className="inline w-4 h-4 ml-2" /> {booking.time_slot}
-                        </p>
-                      </div>
-                      {booking.notes && (
-                        <div className="col-span-2">
-                          <p className="text-sm text-gray-600 mb-1">Notes</p>
-                          <p className="text-gray-700">{booking.notes}</p>
-                        </div>
-                      )}
-                    </div>
+                            <div className="grid md:grid-cols-2 gap-4 p-4 bg-gradient-to-r from-cyan-500/5 to-purple-500/5 rounded-xl" data-testid={`booking-details-${booking.id}`}>
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Trainer</p>
+                                <p className="font-medium text-white flex items-center gap-2" data-testid={`booking-trainer-${booking.id}`}>
+                                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 flex items-center justify-center text-xs text-white">
+                                    {booking.trainer_name?.charAt(0)}
+                                  </div>
+                                  {booking.trainer_name}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-zinc-500 mb-1">Date & Time</p>
+                                <p className="font-medium text-white flex items-center gap-2" data-testid={`booking-date-time-${booking.id}`}>
+                                  <Calendar className="w-4 h-4 text-cyan-400" />
+                                  {booking.booking_date}
+                                  <Clock className="w-4 h-4 text-purple-400 ml-2" />
+                                  {booking.time_slot}
+                                </p>
+                              </div>
+                              {booking.notes && (
+                                <div className="md:col-span-2">
+                                  <p className="text-xs text-zinc-500 mb-1">Notes</p>
+                                  <p className="text-sm text-zinc-300 bg-white/5 p-3 rounded-lg" data-testid={`booking-notes-${booking.id}`}>
+                                    {booking.notes}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
 
-                    <div className="mt-4 text-sm text-gray-500">
-                      Booked on: {new Date(booking.created_at).toLocaleString()}
-                    </div>
-                  </Card>
-                ))
-              )}
-            </TabsContent>
-          </Tabs>
-        </Card>
+                            <p className="mt-4 text-xs text-zinc-500 flex items-center gap-2" data-testid={`booking-created-at-${booking.id}`}>
+                              <span className="w-1.5 h-1.5 bg-cyan-500 rounded-full" />
+                              Booked on {new Date(booking.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </Card>
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                )}
+              </TabsContent>
+            </Tabs>
+          </Card>
+        </motion.div>
+
+        {/* Achievement Badge */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5 }}
+          className="mt-8 flex justify-center"
+        >
+          <Badge className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border-amber-500/30 px-4 py-2">
+            <Gift className="w-4 h-4 mr-2" />
+            You've earned 3 new achievements this week! 🏆
+          </Badge>
+        </motion.div>
       </div>
     </div>
   );

@@ -1,68 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dumbbell, ShoppingCart, Search, Package } from 'lucide-react';
-import { productAPI, cartAPI } from '../utils/api';
-import { toast } from 'sonner';
+import React, { useEffect, useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { ShoppingCart, Search, Package } from "lucide-react";
+import { productAPI, cartAPI } from "../utils/api";
+import { toast } from "sonner";
+import { UserLayout } from "@/components/user/UserLayout";
 
 export default function UserShopPage() {
   const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
-  const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("all");
   const [cartCount, setCartCount] = useState(0);
 
-  useEffect(() => {
-    fetchProducts();
-    loadCartCount();
-  }, []);
+  const categories = ["all", "Equipment", "Apparel", "Supplements", "Accessories"];
 
-  useEffect(() => {
-    filterProducts();
-  }, [products, searchQuery, categoryFilter]);
-
-  const loadCartCount = async () => {
-    try {
-      const response = await cartAPI.get();
-      const items = response.data.items || [];
-      setCartCount(items.length);
-    } catch (error) {
-      console.error('Error loading cart:', error);
-    }
-  };
+  /* ---------------- FETCH PRODUCTS ---------------- */
 
   const fetchProducts = async () => {
     try {
       const response = await productAPI.getAll({ limit: 100 });
-      setProducts(response.data);
+
+      if (Array.isArray(response.data)) {
+        setProducts(response.data);
+      } else {
+        setProducts([]);
+      }
     } catch (error) {
-      toast.error('Failed to load products');
+      console.error("Product fetch error:", error);
+      toast.error("Failed to load products");
     } finally {
       setLoading(false);
     }
   };
 
-  const filterProducts = () => {
-    let filtered = products;
+  /* ---------------- LOAD CART ---------------- */
 
-    if (searchQuery) {
-      filtered = filtered.filter(product =>
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.description.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+  const loadCartCount = async () => {
+    try {
+      const response = await cartAPI.get();
+      const items = response?.data?.items || [];
+      setCartCount(items.length);
+    } catch (error) {
+      console.error("Cart load error:", error);
     }
-
-    if (categoryFilter && categoryFilter !== 'all') {
-      filtered = filtered.filter(product => product.category === categoryFilter);
-    }
-
-    setFilteredProducts(filtered);
   };
+
+  /* ---------------- ADD TO CART ---------------- */
 
   const addToCart = async (product) => {
     try {
@@ -70,167 +65,197 @@ export default function UserShopPage() {
         product_id: product.id,
         quantity: 1
       });
-      toast.success('Added to cart!');
-      await loadCartCount();
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
-    }
-  }; // <-- Only one closing brace here
 
-  const categories = ['all', 'Equipment', 'Apparel', 'Supplements', 'Accessories'];
+      toast.success("Added to cart");
+      loadCartCount();
+    } catch (error) {
+      console.error("Add to cart error:", error);
+      toast.error("Failed to add to cart");
+    }
+  };
+
+  /* ---------------- FILTER PRODUCTS ---------------- */
+
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (product) =>
+          product.name?.toLowerCase().includes(query) ||
+          product.description?.toLowerCase().includes(query)
+      );
+    }
+
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter(
+        (product) => product.category === categoryFilter
+      );
+    }
+
+    return filtered;
+  }, [products, searchQuery, categoryFilter]);
+
+  /* ---------------- LOAD DATA ---------------- */
+
+  useEffect(() => {
+    fetchProducts();
+    loadCartCount();
+  }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-              <Dumbbell className="h-6 w-6 text-purple-600" />
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                FitSphere
-              </span>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Button onClick={() => navigate('/user/dashboard')} variant="outline">Dashboard</Button>
-              <Button onClick={() => navigate('/user/cart')} className="bg-gradient-to-r from-purple-600 to-pink-600" data-testid="cart-button">
-                <ShoppingCart className="h-4 w-4 mr-2" />
-                 Cart ({cartCount})
-              </Button>
-            </div>
-          </div>
-        </div>
-      </div>
+    <UserLayout
+      activePath="/user/shop"
+      title="FitSphere Store"
+      subtitle="Premium gear, apparel, and supplements curated for your performance goals."
+      actions={
+        <Button
+          onClick={() => navigate("/user/cart")}
+          className="bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
+        >
+          <ShoppingCart className="mr-2 h-4 w-4" />
+          Cart ({cartCount})
+        </Button>
+      }
+    >
+      {/* ---------------- FILTERS ---------------- */}
 
-      <div className="container mx-auto px-4 py-8">
-        {/* Page Header */}
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Fitness Products Shop
-          </h1>
-          <p className="text-xl text-gray-600">
-            Premium equipment, apparel, and supplements
-          </p>
-        </div>
+      <Card className="saas-glass-card mb-8 p-6">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-zinc-400" />
 
-        {/* Filters */}
-        <Card className="p-6 mb-8">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-              <Input
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-                data-testid="search-input"
-              />
-            </div>
-            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger data-testid="category-filter">
-                <SelectValue placeholder="Filter by category" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map(cat => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat === 'all' ? 'All Categories' : cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="border-white/10 bg-zinc-950/70 pl-10 text-zinc-100"
+            />
           </div>
+
+          <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+            <SelectTrigger className="border-white/10 bg-zinc-950/70">
+              <SelectValue placeholder="Filter by category" />
+            </SelectTrigger>
+
+            <SelectContent className="border-white/10 bg-zinc-900 text-zinc-100">
+              {categories.map((cat) => (
+                <SelectItem key={cat} value={cat}>
+                  {cat === "all" ? "All Categories" : cat}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </Card>
+
+      {/* ---------------- LOADING ---------------- */}
+
+      {loading ? (
+        <Card className="saas-glass-card p-10 text-center">
+          <p className="text-zinc-300">Loading products...</p>
         </Card>
+      ) : filteredProducts.length === 0 ? (
+        <Card className="saas-glass-card p-10 text-center">
+          <p className="text-zinc-300">No products found.</p>
+        </Card>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filteredProducts.map((product) => (
+            <Card
+              key={product.id}
+              className="overflow-hidden border border-cyan-300/20 bg-zinc-900/70 transition duration-300 hover:-translate-y-1 hover:border-cyan-300/45"
+            >
+              {/* PRODUCT IMAGE */}
 
-        {/* Products Grid */}
-        {loading ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-500">Loading products...</div>
-          </div>
-        ) : filteredProducts.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-xl text-gray-500">No products found</div>
-          </div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="products-grid">
-            {filteredProducts.map((product) => (
-              <Card key={product.id} className="overflow-hidden hover:shadow-2xl transition-all hover:scale-105" data-testid="product-card">
-                <div 
-                  className="h-56 bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative overflow-hidden cursor-pointer"
+              <button
+                type="button"
+                className="relative block aspect-[4/3] w-full overflow-hidden bg-zinc-950"
+                onClick={() => navigate(`/product/${product.id}`)}
+              >
+                {product.image_urls?.length > 0 ? (
+                  <img
+                    src={product.image_urls[0]}
+                    alt={product.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full items-center justify-center">
+                    <Package className="h-16 w-16 text-zinc-500" />
+                  </div>
+                )}
+
+                {product.discount > 0 && (
+                  <span className="absolute right-3 top-3 rounded-full bg-red-500 px-2 py-1 text-xs font-bold text-white">
+                    {product.discount}% OFF
+                  </span>
+                )}
+              </button>
+
+              {/* PRODUCT INFO */}
+
+              <div className="space-y-3 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+                  {product.category}
+                </p>
+
+                <button
+                  className="line-clamp-2 text-left text-lg font-semibold text-white hover:text-cyan-200"
                   onClick={() => navigate(`/product/${product.id}`)}
                 >
-                  {product.image_urls && product.image_urls.length > 0 ? (
-                    <img 
-                      src={product.image_urls[0]} 
-                      alt={product.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <Package className="h-20 w-20 text-white/80" />
-                  )}
-                  {product.discount > 0 && (
-                    <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full font-bold text-sm z-10">
-                      {product.discount}% OFF
-                    </div>
-                  )}
-                </div>
-                <div className="p-6">
-                  <div className="text-sm text-teal-600 font-semibold mb-2 uppercase">
-                    {product.category}
-                  </div>
-                  <h3 
-                    className="font-bold text-xl mb-2 cursor-pointer hover:text-teal-600 transition-colors"
-                    onClick={() => navigate(`/product/${product.id}`)}
-                  >
-                    {product.name}
-                  </h3>
-                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
-                    {product.description}
+                  {product.name}
+                </button>
+
+                <p className="line-clamp-2 text-sm text-zinc-300">
+                  {product.description}
+                </p>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-2xl font-bold text-cyan-200">
+                    ₹{product.price}
                   </p>
 
-                  <div className="flex items-center justify-between mb-4">
-                    <div>
-                      <span className="text-3xl font-bold text-teal-600">₹{product.price}</span>
-                      {product.discount > 0 && (
-                        <span className="text-sm text-gray-500 line-through ml-2">
-                          ₹{(product.price / (1 - product.discount / 100)).toFixed(0)}
-                        </span>
-                      )}
-                    </div>
-                  </div>
+                  {product.discount > 0 && (
+                    <p className="text-sm text-zinc-400 line-through">
+                      ₹{(product.price / (1 - product.discount / 100)).toFixed(0)}
+                    </p>
+                  )}
+                </div>
 
-                  <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                    <span>{product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}</span>
-                  </div>
+                <p className="text-sm text-zinc-400">
+                  {product.stock > 0
+                    ? `${product.stock} in stock`
+                    : "Out of stock"}
+                </p>
 
-                   <div className="grid grid-cols-2 gap-2">
-                    <Button
-                      onClick={() => navigate(`/product/${product.id}`)}
-                      variant="outline"
-                      className="w-full"
-                      data-testid="view-details-btn"
-                    >
-                      View Details
-                    </Button>
+                {/* BUTTONS */}
+
+                <div className="grid grid-cols-2 gap-2">
+                  <Button
+                    onClick={() => navigate(`/product/${product.id}`)}
+                    variant="outline"
+                    className="border-white/15 bg-white/5 text-zinc-100 hover:bg-white/10"
+                  >
+                    Details
+                  </Button>
 
                   <Button
-                   onClick={(e) => {
-                        e.stopPropagation();
-                        addToCart(product);
-                      }}
-                    className="w-full bg-gradient-to-r from-teal-600 to-cyan-600"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      addToCart(product);
+                    }}
+                    className="bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
                     disabled={product.stock === 0}
-                    data-testid="add-to-cart-btn"
                   >
-                    {product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                    {product.stock === 0 ? "Out of Stock" : "Add"}
                   </Button>
-                  </div>
                 </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </UserLayout>
   );
 }

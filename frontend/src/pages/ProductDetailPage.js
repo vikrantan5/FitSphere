@@ -1,17 +1,26 @@
-import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { 
-  Dumbbell, ShoppingCart, ArrowLeft, Package, Star, 
-  Minus, Plus, Truck, Shield, RefreshCw 
-} from 'lucide-react';
-import { productAPI, cartAPI } from '../utils/api';
-import { toast } from 'sonner';
+import React, { useEffect, useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  ShoppingCart,
+  ArrowLeft,
+  Package,
+  Star,
+  Minus,
+  Plus,
+  Truck,
+  Shield,
+  RefreshCw,
+} from "lucide-react";
+import { productAPI, cartAPI } from "../utils/api";
+import { toast } from "sonner";
+import { UserLayout } from "@/components/user/UserLayout";
 
 export default function ProductDetailPage() {
   const { productId } = useParams();
   const navigate = useNavigate();
+
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
@@ -28,9 +37,9 @@ export default function ProductDetailPage() {
       const response = await productAPI.getOne(productId);
       setProduct(response.data);
     } catch (error) {
-      console.error('Error fetching product:', error);
-      toast.error('Failed to load product details');
-      navigate('/user/shop');
+      console.error("Error fetching product:", error);
+      toast.error("Failed to load product details");
+      navigate("/user/shop");
     } finally {
       setLoading(false);
     }
@@ -39,15 +48,18 @@ export default function ProductDetailPage() {
   const addToCart = async () => {
     try {
       setAddingToCart(true);
+
       await cartAPI.add({
         product_id: product.id,
-        quantity: quantity
+        quantity: quantity,
       });
+
       toast.success(`Added ${quantity} item(s) to cart!`);
-      navigate('/user/cart');
+
+      navigate("/user/cart");
     } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error('Failed to add to cart');
+      console.error(error);
+      toast.error("Failed to add to cart");
     } finally {
       setAddingToCart(false);
     }
@@ -56,14 +68,16 @@ export default function ProductDetailPage() {
   const buyNow = async () => {
     try {
       setAddingToCart(true);
+
       await cartAPI.add({
         product_id: product.id,
-        quantity: quantity
+        quantity: quantity,
       });
-      navigate('/user/cart');
+
+      navigate("/user/cart");
     } catch (error) {
-      console.error('Error:', error);
-      toast.error('Failed to proceed');
+      console.error(error);
+      toast.error("Failed to proceed");
     } finally {
       setAddingToCart(false);
     }
@@ -71,7 +85,7 @@ export default function ProductDetailPage() {
 
   const calculateDiscountedPrice = () => {
     if (!product) return 0;
-    return product.price * (1 - product.discount / 100);
+    return product.price * (1 - (product.discount || 0) / 100);
   };
 
   const renderStars = (rating) => {
@@ -82,22 +96,24 @@ export default function ProductDetailPage() {
             key={index}
             className={`w-5 h-5 ${
               index < Math.floor(rating)
-                ? 'fill-yellow-400 text-yellow-400'
-                : 'text-gray-300'
+                ? "fill-yellow-400 text-yellow-400"
+                : "text-zinc-500"
             }`}
           />
         ))}
-        <span className="ml-2 text-sm text-gray-600">({rating.toFixed(1)})</span>
+        <span className="ml-2 text-sm text-zinc-400">
+          ({rating?.toFixed(1)})
+        </span>
       </div>
     );
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen saas-aurora flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-purple-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading product...</p>
+          <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-zinc-300">Loading product...</p>
         </div>
       </div>
     );
@@ -105,236 +121,228 @@ export default function ProductDetailPage() {
 
   if (!product) return null;
 
-  const images = product.image_urls && product.image_urls.length > 0 
-    ? product.image_urls 
-    : [];
+  const images =
+    product.image_urls && product.image_urls.length > 0
+      ? product.image_urls
+      : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-sm sticky top-0 z-40">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Button
-                onClick={() => navigate('/user/shop')}
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                data-testid="back-button"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Shop
-              </Button>
-              <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-                <Dumbbell className="h-6 w-6 text-purple-600" />
-                <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                  FitSphere
+    <UserLayout
+      activePath="/user/shop"
+      title="Product Details"
+      subtitle="Review product specifications, choose quantity, and add directly to your cart."
+      actions={
+        <>
+          <Button
+            onClick={() => navigate("/user/shop")}
+            variant="outline"
+            size="sm"
+            className="border-white/20 bg-white/5 text-zinc-100 hover:bg-white/10"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Shop
+          </Button>
+
+          <Button
+            onClick={() => navigate("/user/cart")}
+            className="bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
+          >
+            <ShoppingCart className="mr-2 h-4 w-4" />
+            Cart
+          </Button>
+        </>
+      }
+    >
+      <div className="grid gap-8 lg:grid-cols-2">
+        {/* Product Images */}
+        <div className="space-y-4">
+          <Card className="saas-glass-card overflow-hidden">
+            <div className="relative aspect-square bg-zinc-950">
+              {images.length > 0 ? (
+                <img
+                  src={images[selectedImage]}
+                  alt={product.name}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <Package className="h-24 w-24 text-zinc-500" />
+                </div>
+              )}
+
+              {product.discount > 0 && (
+                <span className="absolute right-4 top-4 rounded-full bg-red-500 px-3 py-1 text-sm font-bold text-white">
+                  {product.discount}% OFF
                 </span>
-              </div>
+              )}
             </div>
-            <Button 
-              onClick={() => navigate('/user/cart')} 
-              className="bg-gradient-to-r from-purple-600 to-pink-600"
-              data-testid="cart-button"
-            >
-              <ShoppingCart className="h-4 w-4 mr-2" />
-              Cart
-            </Button>
-          </div>
-        </div>
-      </div>
+          </Card>
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8 mb-8">
-          {/* Product Images */}
-          <div className="space-y-4">
-            <Card className="overflow-hidden" data-testid="main-image-card">
-              <div className="aspect-square bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500 flex items-center justify-center relative">
-                {images.length > 0 ? (
+          {images.length > 1 && (
+            <div className="grid grid-cols-4 gap-3">
+              {images.map((image, index) => (
+                <button
+                  key={index}
+                  onClick={() => setSelectedImage(index)}
+                  className={`overflow-hidden rounded-xl border ${
+                    selectedImage === index
+                      ? "border-cyan-300"
+                      : "border-white/10"
+                  }`}
+                >
                   <img
-                    src={images[selectedImage]}
-                    alt={product.name}
-                    className="w-full h-full object-cover"
+                    src={image}
+                    alt={`${product.name} ${index + 1}`}
+                    className="aspect-square w-full object-cover"
                   />
-                ) : (
-                  <Package className="h-32 w-32 text-white/80" />
-                )}
-                {product.discount > 0 && (
-                  <div className="absolute top-4 right-4 bg-red-500 text-white px-4 py-2 rounded-full font-bold text-lg shadow-lg z-10">
-                    {product.discount}% OFF
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Thumbnail Images */}
-            {images.length > 1 && (
-              <div className="grid grid-cols-4 gap-4">
-                {images.map((image, index) => (
-                  <Card
-                    key={index}
-                    className={`cursor-pointer overflow-hidden transition-all hover:shadow-lg ${
-                      selectedImage === index ? 'ring-2 ring-purple-600' : ''
-                    }`}
-                    onClick={() => setSelectedImage(index)}
-                    data-testid={`thumbnail-${index}`}
-                  >
-                    <div className="aspect-square bg-gradient-to-br from-teal-400 via-cyan-400 to-blue-500">
-                      <img
-                        src={image}
-                        alt={`${product.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Product Details */}
-          <div className="space-y-6">
-            <div>
-              <div className="text-sm text-teal-600 font-semibold mb-2 uppercase tracking-wide">
-                {product.category}
-              </div>
-              <h1 className="text-4xl font-bold mb-4" data-testid="product-name">
-                {product.name}
-              </h1>
-              {renderStars(product.rating)}
+                </button>
+              ))}
             </div>
+          )}
+        </div>
 
-            <div className="border-t border-b py-6">
-              <div className="flex items-baseline gap-4">
-                <span className="text-5xl font-bold text-teal-600" data-testid="product-price">
+        {/* Product Details */}
+        <div className="space-y-6">
+          <Card className="saas-glass-card p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+              {product.category}
+            </p>
+
+            <h1 className="mt-2 text-4xl font-bold text-white">
+              {product.name}
+            </h1>
+
+            <div className="mt-3">{renderStars(product.rating)}</div>
+
+            <div className="mt-6 border-y border-white/10 py-5">
+              <div className="flex items-end gap-3">
+                <span className="text-4xl font-bold text-cyan-200">
                   ₹{calculateDiscountedPrice().toFixed(2)}
                 </span>
+
                 {product.discount > 0 && (
-                  <span className="text-2xl text-gray-500 line-through">
+                  <span className="text-xl text-zinc-400 line-through">
                     ₹{product.price.toFixed(2)}
                   </span>
                 )}
-                {product.discount > 0 && (
-                  <span className="text-lg text-green-600 font-semibold">
-                    Save ₹{(product.price - calculateDiscountedPrice()).toFixed(2)}
-                  </span>
-                )}
               </div>
             </div>
 
-            <div>
-              <h3 className="font-bold text-lg mb-2">Description</h3>
-              <p className="text-gray-700 leading-relaxed" data-testid="product-description">
+            <div className="mt-4">
+              <h3 className="text-lg font-semibold text-white">
+                Description
+              </h3>
+
+              <p className="mt-2 text-zinc-300">
                 {product.description}
               </p>
             </div>
+          </Card>
 
-            <div className="grid grid-cols-3 gap-4">
-              <Card className="p-4 text-center">
-                <Package className="w-8 h-8 text-teal-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold">SKU</p>
-                <p className="text-xs text-gray-600">{product.sku}</p>
-              </Card>
-              <Card className="p-4 text-center">
-                <Package className="w-8 h-8 text-purple-600 mx-auto mb-2" />
-                <p className="text-sm font-semibold" data-testid="stock-status">
-                  {product.stock > 0 ? `${product.stock} in stock` : 'Out of stock'}
-                </p>
-                <p className="text-xs text-gray-600">
-                  {product.stock > 10 ? 'Available' : product.stock > 0 ? 'Low Stock' : 'Unavailable'}
-                </p>
-              </Card>
-              <Card className="p-4 text-center">
-                <Star className="w-8 h-8 text-yellow-500 mx-auto mb-2" />
-                <p className="text-sm font-semibold">Rating</p>
-                <p className="text-xs text-gray-600">{product.rating}/5.0</p>
-              </Card>
-            </div>
+          {/* Quantity + Buy */}
+          <Card className="saas-glass-card p-6">
+            <label className="mb-2 block text-sm font-semibold uppercase tracking-[0.15em] text-cyan-300">
+              Quantity
+            </label>
 
-            {/* Quantity Selector */}
-            <div>
-              <label className="block text-sm font-semibold mb-2">Quantity</label>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center border rounded-lg">
-                  <Button
-                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                    variant="ghost"
-                    size="sm"
-                    disabled={quantity <= 1}
-                    data-testid="decrease-quantity"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="px-6 py-2 font-bold text-lg" data-testid="quantity-display">
-                    {quantity}
-                  </span>
-                  <Button
-                    onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
-                    variant="ghost"
-                    size="sm"
-                    disabled={quantity >= product.stock}
-                    data-testid="increase-quantity"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-                <span className="text-sm text-gray-600">
-                  (Max: {product.stock} available)
+            <div className="flex items-center gap-3">
+              <div className="flex items-center rounded-lg border border-white/15 bg-zinc-950/70">
+                <Button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  variant="ghost"
+                  size="sm"
+                  disabled={quantity <= 1}
+                >
+                  <Minus className="h-4 w-4" />
+                </Button>
+
+                <span className="px-6 py-2 text-lg font-semibold">
+                  {quantity}
                 </span>
+
+                <Button
+                  onClick={() =>
+                    setQuantity(Math.min(product.stock, quantity + 1))
+                  }
+                  variant="ghost"
+                  size="sm"
+                  disabled={quantity >= product.stock}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
+
+              <span className="text-sm text-zinc-400">
+                Max {product.stock} available
+              </span>
             </div>
 
-            {/* Action Buttons */}
-            <div className="space-y-4">
+            <div className="mt-5 space-y-3">
               <Button
                 onClick={addToCart}
                 disabled={product.stock === 0 || addingToCart}
-                className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-6 text-lg font-semibold"
-                data-testid="add-to-cart-btn"
+                className="w-full bg-cyan-500 py-6 text-lg font-semibold text-zinc-950 hover:bg-cyan-400"
               >
-                <ShoppingCart className="h-5 w-5 mr-2" />
-                {addingToCart ? 'Adding...' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
+                <ShoppingCart className="mr-2 h-5 w-5" />
+                {addingToCart
+                  ? "Adding..."
+                  : product.stock === 0
+                  ? "Out of Stock"
+                  : "Add to Cart"}
               </Button>
+
               <Button
                 onClick={buyNow}
                 disabled={product.stock === 0 || addingToCart}
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white py-6 text-lg font-semibold"
-                data-testid="buy-now-btn"
+                className="w-full border border-white/15 bg-white/5 py-6 text-lg font-semibold text-zinc-100 hover:bg-white/10"
               >
-                {addingToCart ? 'Processing...' : 'Buy Now'}
+                {addingToCart ? "Processing..." : "Buy Now"}
               </Button>
             </div>
+          </Card>
 
-            {/* Features */}
-            <Card className="p-6 bg-gray-50">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="flex items-center gap-3">
-                  <Truck className="h-8 w-8 text-teal-600" />
-                  <div>
-                    <p className="font-semibold text-sm">Free Delivery</p>
-                    <p className="text-xs text-gray-600">On orders above ₹500</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <RefreshCw className="h-8 w-8 text-purple-600" />
-                  <div>
-                    <p className="font-semibold text-sm">Easy Returns</p>
-                    <p className="text-xs text-gray-600">7 days return policy</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Shield className="h-8 w-8 text-pink-600" />
-                  <div>
-                    <p className="font-semibold text-sm">Secure Payment</p>
-                    <p className="text-xs text-gray-600">100% secure transactions</p>
-                  </div>
+          {/* Benefits */}
+          <Card className="saas-glass-card p-6">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="flex items-center gap-3">
+                <Truck className="h-6 w-6 text-cyan-300" />
+                <div>
+                  <p className="font-semibold text-white">
+                    Free Delivery
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    On orders above ₹500
+                  </p>
                 </div>
               </div>
-            </Card>
-          </div>
+
+              <div className="flex items-center gap-3">
+                <RefreshCw className="h-6 w-6 text-blue-300" />
+                <div>
+                  <p className="font-semibold text-white">
+                    Easy Returns
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    7 day return policy
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Shield className="h-6 w-6 text-emerald-300" />
+                <div>
+                  <p className="font-semibold text-white">
+                    Secure Payment
+                  </p>
+                  <p className="text-xs text-zinc-400">
+                    Protected checkout
+                  </p>
+                </div>
+              </div>
+            </div>
+          </Card>
         </div>
       </div>
-    </div>
+    </UserLayout>
   );
 }

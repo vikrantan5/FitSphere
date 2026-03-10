@@ -1,33 +1,36 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Dumbbell, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
-import { orderAPI, cartAPI } from '../utils/api';
-import { toast } from 'sonner';
+import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Trash2, Plus, Minus, ShoppingCart } from "lucide-react";
+import { orderAPI, cartAPI } from "../utils/api";
+import { toast } from "sonner";
+import { UserLayout } from "@/components/user/UserLayout";
 
 export default function UserCartPage() {
   const navigate = useNavigate();
+
   const [cart, setCart] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [customerInfo, setCustomerInfo] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    address: ''
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
   });
 
   useEffect(() => {
     loadCart();
     loadCustomerInfo();
-    
-    // Load Razorpay script dynamically
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
     script.async = true;
+
     document.body.appendChild(script);
-    
+
     return () => {
       if (document.body.contains(script)) {
         document.body.removeChild(script);
@@ -38,17 +41,19 @@ export default function UserCartPage() {
   const loadCart = async () => {
     try {
       setLoading(true);
+
       const response = await cartAPI.get();
+
       setCart(response.data.items || []);
     } catch (error) {
-      console.error('Error loading cart:', error);
-      // Fallback to localStorage if API fails
-      const savedCart = localStorage.getItem('cart');
+      console.error("Error loading cart:", error);
+
+      const savedCart = localStorage.getItem("cart");
+
       if (savedCart) {
         try {
           setCart(JSON.parse(savedCart));
-        } catch (e) {
-          console.error('Error parsing cart:', e);
+        } catch {
           setCart([]);
         }
       }
@@ -59,352 +64,379 @@ export default function UserCartPage() {
 
   const loadCustomerInfo = () => {
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      if (user) {
-        setCustomerInfo({
-          name: user.name || '',
-          email: user.email || '',
-          phone: user.phone || '',
-          address: ''
-        });
-      }
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+      setCustomerInfo({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        address: "",
+      });
     } catch (error) {
-      console.error('Error loading user info:', error);
+      console.error("Error loading user info:", error);
     }
   };
 
   const updateQuantity = async (productId, change) => {
-    const item = cart.find(i => i.product_id === productId);
+    const item = cart.find((i) => i.product_id === productId);
+
     if (!item) return;
-    
+
     const newQuantity = Math.max(1, (item.quantity || 1) + change);
-    
+
     try {
       await cartAPI.update(productId, { quantity: newQuantity });
+
       await loadCart();
     } catch (error) {
-      console.error('Error updating quantity:', error);
-      toast.error('Failed to update quantity');
+      console.error(error);
+
+      toast.error("Failed to update quantity");
     }
   };
 
   const removeItem = async (productId) => {
     try {
       await cartAPI.remove(productId);
+
       await loadCart();
-      toast.success('Item removed from cart');
+
+      toast.success("Item removed from cart");
     } catch (error) {
-      console.error('Error removing item:', error);
-      toast.error('Failed to remove item');
+      console.error(error);
+
+      toast.error("Failed to remove item");
     }
   };
-
 
   const calculateTotal = () => {
     return cart.reduce((total, item) => {
       const itemPrice = item.price * (1 - (item.discount || 0) / 100);
-      return total + (itemPrice * (item.quantity || 1));
+
+      return total + itemPrice * (item.quantity || 1);
     }, 0);
   };
 
   const handleCheckout = async () => {
-    if (!customerInfo.name || !customerInfo.email || !customerInfo.phone || !customerInfo.address) {
-      toast.error('Please fill all customer information');
-      return;
-    }
+    if (
+      !customerInfo.name ||
+      !customerInfo.email ||
+      !customerInfo.phone ||
+      !customerInfo.address
+    ) {
+      toast.error("Please fill all customer information");
 
-    // Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(customerInfo.email)) {
-      toast.error('Please enter a valid email address');
-      return;
-    }
-
-    // Basic phone validation
-    const phoneRegex = /^[0-9+\-\s]{10,15}$/;
-    if (!phoneRegex.test(customerInfo.phone)) {
-      toast.error('Please enter a valid phone number');
       return;
     }
 
     if (cart.length === 0) {
-      toast.error('Cart is empty');
+      toast.error("Cart is empty");
+
       return;
     }
 
     setLoading(true);
 
     try {
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+
       const orderData = {
-        user_id: user.id || 'guest',
-        items: cart.map(item => ({
-         product_id: item.product_id,
+        user_id: user.id || "guest",
+
+        items: cart.map((item) => ({
+          product_id: item.product_id,
           product_name: item.product_name,
           quantity: item.quantity || 1,
-          price: item.price * (1 - (item.discount || 0) / 100)
+          price: item.price * (1 - (item.discount || 0) / 100),
         })),
+
         total_amount: calculateTotal(),
+
         customer_name: customerInfo.name,
         customer_email: customerInfo.email,
         customer_phone: customerInfo.phone,
-        shipping_address: customerInfo.address
+        shipping_address: customerInfo.address,
       };
 
-     const response = await orderAPI.createRazorpay(orderData);
-      
-      // Check if Razorpay is loaded
+      const response = await orderAPI.createRazorpay(orderData);
+
       if (!window.Razorpay) {
-        toast.error('Payment gateway not loaded. Please refresh the page.');
+        toast.error("Payment gateway not loaded");
+
         setLoading(false);
+
         return;
       }
-      
-      // Initialize Razorpay
+
       const options = {
         key: response.data.razorpay_key_id,
         amount: response.data.amount,
         currency: response.data.currency,
-        name: 'FitSphere',
-        description: 'Fitness Services & Products',
+        name: "FitSphere",
+        description: "Fitness Products",
         order_id: response.data.razorpay_order_id,
+
         handler: async function (paymentResponse) {
           try {
-            // Create FormData and append payment details
             const verifyData = new FormData();
-            verifyData.append('razorpay_order_id', paymentResponse.razorpay_order_id);
-            verifyData.append('razorpay_payment_id', paymentResponse.razorpay_payment_id);
-            verifyData.append('razorpay_signature', paymentResponse.razorpay_signature);
+
+            verifyData.append(
+              "razorpay_order_id",
+              paymentResponse.razorpay_order_id
+            );
+            verifyData.append(
+              "razorpay_payment_id",
+              paymentResponse.razorpay_payment_id
+            );
+            verifyData.append(
+              "razorpay_signature",
+              paymentResponse.razorpay_signature
+            );
 
             await orderAPI.verifyPayment(verifyData);
-            
-              // Clear cart from database and localStorage
+
             try {
               await cartAPI.clear();
-            } catch (e) {
-              console.error('Error clearing cart from database:', e);
-            }
-            localStorage.removeItem('cart');
+            } catch {}
+
+            localStorage.removeItem("cart");
+
             setCart([]);
-            
-            toast.success('Payment successful! Order placed.');
-            navigate('/user/dashboard');
+
+            toast.success("Payment successful! Order placed.");
+
+            navigate("/user/dashboard");
           } catch (error) {
-            console.error('Payment verification error:', error);
-            toast.error('Payment verification failed');
+            console.error(error);
+
+            toast.error("Payment verification failed");
           }
         },
+
         prefill: {
           name: customerInfo.name,
           email: customerInfo.email,
-          contact: customerInfo.phone
+          contact: customerInfo.phone,
         },
+
         theme: {
-          color: '#9333ea'
+          color: "#06b6d4",
         },
+
         modal: {
-          ondismiss: function() {
+          ondismiss: () => {
             setLoading(false);
-            toast.info('Payment cancelled');
-          }
-        }
+
+            toast.info("Payment cancelled");
+          },
+        },
       };
 
       const razorpay = new window.Razorpay(options);
+
       razorpay.open();
     } catch (error) {
-      console.error('Checkout error:', error);
-      toast.error(error.response?.data?.message || 'Failed to create order');
+      console.error(error);
+
+      toast.error(error.response?.data?.message || "Failed to create order");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
-      {/* Header */}
-      <div className="bg-white/80 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 cursor-pointer" onClick={() => navigate('/')}>
-              <Dumbbell className="h-6 w-6 text-purple-600" />
-              <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                FitSphere
-              </span>
-            </div>
-            <Button onClick={() => navigate('/user/dashboard')} variant="outline">Dashboard</Button>
-          </div>
-        </div>
-      </div>
+    <UserLayout
+      activePath="/user/cart"
+      title="Your Cart"
+      subtitle="Review selected items, update quantities, and complete secure checkout in one flow."
+    >
+      {cart.length === 0 ? (
+        <Card className="saas-glass-card p-12 text-center">
+          <ShoppingCart className="mx-auto h-20 w-20 text-zinc-500" />
 
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center mb-12">
-          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-            Shopping Cart
-          </h1>
-        </div>
+          <h3 className="mt-4 text-2xl font-bold text-white">
+            Your cart is empty
+          </h3>
 
-        {cart.length === 0 ? (
-          <Card className="p-12 text-center" data-testid="empty-cart">
-            <ShoppingCart className="h-24 w-24 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-2xl font-bold mb-2">Your cart is empty</h3>
-            <p className="text-gray-600 mb-6">Add some items to get started!</p>
-            <Button onClick={() => navigate('/user/sessions')} className="bg-gradient-to-r from-purple-600 to-pink-600">
-              Browse Sessions
-            </Button>
-          </Card>
-        ) : (
-          <div className="grid lg:grid-cols-3 gap-8">
-            {/* Cart Items */}
-             <div className="lg:col-span-2 space-y-4" data-testid="cart-items">
-              {cart.map((item) => (
-                <Card key={item.product_id} className="p-6" data-testid="cart-item">
-                  <div className="flex items-start gap-4">
-                    {item.image_url ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.product_name}
-                        className="w-24 h-24 object-cover rounded-lg flex-shrink-0"
-                      />
-                    ) : (
-                      <div className="w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 rounded-lg flex items-center justify-center flex-shrink-0">
-                        <Dumbbell className="h-10 w-10 text-white" />
+          <p className="mt-2 text-zinc-300">
+            Add products or sessions to get started.
+          </p>
+
+          <Button
+            onClick={() => navigate("/user/shop")}
+            className="mt-6 bg-cyan-500 text-zinc-950 hover:bg-cyan-400"
+          >
+            Browse Store
+          </Button>
+        </Card>
+      ) : (
+        <div className="grid gap-8 lg:grid-cols-3">
+          {/* Cart Items */}
+          <div className="space-y-4 lg:col-span-2">
+            {cart.map((item) => (
+              <Card key={item.product_id} className="saas-glass-card p-5">
+                <div className="flex flex-col gap-4 md:flex-row">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt={item.product_name}
+                      className="h-24 w-24 rounded-lg object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-24 w-24 items-center justify-center rounded-lg bg-zinc-900">
+                      <ShoppingCart className="h-10 w-10 text-zinc-500" />
+                    </div>
+                  )}
+
+                  <div className="flex-1">
+                    <div className="flex justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white">
+                          {item.product_name}
+                        </h3>
+
+                        <p className="text-sm text-zinc-400">
+                          Qty: {item.quantity || 1}
+                        </p>
                       </div>
-                    )}
-                    <div className="flex-1">
-                      <div className="flex justify-between">
-                        <div>
-                          <h3 className="font-bold text-lg">{item.product_name}</h3>
-                          <p className="text-gray-600 text-sm">Qty: {item.quantity || 1}</p>
-                        </div>
+
+                      <Button
+                        onClick={() => removeItem(item.product_id)}
+                        variant="ghost"
+                        size="sm"
+                        className="text-red-300 hover:bg-red-500/20"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </Button>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
                         <Button
-                          onClick={() => removeItem(item.product_id)}
-                          variant="ghost"
+                          onClick={() => updateQuantity(item.product_id, -1)}
+                          variant="outline"
                           size="sm"
-                          className="text-red-500 hover:text-red-700"
-                          data-testid="remove-item-btn"
                         >
-                          <Trash2 className="h-5 w-5" />
+                          <Minus className="h-4 w-4" />
+                        </Button>
+
+                        <span className="text-lg font-semibold text-white">
+                          {item.quantity || 1}
+                        </span>
+
+                        <Button
+                          onClick={() => updateQuantity(item.product_id, 1)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <Plus className="h-4 w-4" />
                         </Button>
                       </div>
-                      <div className="flex items-center justify-between mt-4">
-                        <div className="flex items-center space-x-2">
-                          <Button
-                            onClick={() => updateQuantity(item.product_id, -1)}
-                            variant="outline"
-                            size="sm"
-                            data-testid="decrease-qty-btn"
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="font-semibold text-lg" data-testid="item-quantity">{item.quantity || 1}</span>
-                          <Button
-                            onClick={() => updateQuantity(item.product_id, 1)}
-                            variant="outline"
-                            size="sm"
-                            data-testid="increase-qty-btn"
-                          >
-                            <Plus className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="text-right">
-                          <div className="text-2xl font-bold text-purple-600">
-                            ₹{((item.price * (1 - (item.discount || 0) / 100) * (item.quantity || 1)).toFixed(2))}
-                          </div>
-                          {item.discount > 0 && (
-                            <div className="text-sm text-gray-500 line-through">
-                              ₹{(item.price * (item.quantity || 1)).toFixed(2)}
-                            </div>
-                          )}
-                        </div>
+
+                      <div className="text-right">
+                        <p className="text-2xl font-bold text-cyan-200">
+                          ₹
+                          {(
+                            item.price *
+                            (1 - (item.discount || 0) / 100) *
+                            (item.quantity || 1)
+                          ).toFixed(2)}
+                        </p>
                       </div>
                     </div>
                   </div>
-                </Card>
-              ))}
-            </div>
-
-            {/* Order Summary & Customer Info */}
-            <div className="space-y-4">
-              <Card className="p-6" data-testid="customer-info-card">
-                <h3 className="font-bold text-xl mb-4">Customer Information</h3>
-                <div className="space-y-4">
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Name *</label>
-                    <Input
-                      value={customerInfo.name}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })}
-                      placeholder="Your name"
-                      required
-                      data-testid="customer-name-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Email *</label>
-                    <Input
-                      type="email"
-                      value={customerInfo.email}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, email: e.target.value })}
-                      placeholder="your@email.com"
-                      required
-                      data-testid="customer-email-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Phone *</label>
-                    <Input
-                      value={customerInfo.phone}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })}
-                      placeholder="+91 1234567890"
-                      required
-                      data-testid="customer-phone-input"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium mb-1 block">Address *</label>
-                    <Input
-                      value={customerInfo.address}
-                      onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })}
-                      placeholder="Your address"
-                      required
-                      data-testid="customer-address-input"
-                    />
-                  </div>
                 </div>
               </Card>
-
-              <Card className="p-6" data-testid="order-summary-card">
-                <h3 className="font-bold text-xl mb-4">Order Summary</h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-gray-600">
-                    <span>Subtotal</span>
-                    <span>₹{calculateTotal().toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-gray-600">
-                    <span>Shipping</span>
-                    <span>Free</span>
-                  </div>
-                  <div className="border-t pt-3 flex justify-between items-center">
-                    <span className="font-bold text-lg">Total</span>
-                    <span className="font-bold text-2xl text-purple-600" data-testid="total-amount">
-                      ₹{calculateTotal().toFixed(2)}
-                    </span>
-                  </div>
-                </div>
-                <Button
-                  onClick={handleCheckout}
-                  disabled={loading}
-                  className="w-full mt-6 bg-gradient-to-r from-purple-600 to-pink-600 py-6 text-lg"
-                  data-testid="checkout-btn"
-                >
-                  {loading ? 'Processing...' : 'Proceed to Payment'}
-                </Button>
-              </Card>
-            </div>
+            ))}
           </div>
-        )}
-      </div>
-    </div>
+
+          {/* Customer Info + Summary */}
+          <div className="space-y-4">
+            <Card className="saas-glass-card p-6">
+              <h3 className="mb-4 text-xl font-semibold text-white">
+                Customer Information
+              </h3>
+
+              <div className="space-y-4">
+                <Input
+                  placeholder="Name"
+                  value={customerInfo.name}
+                  onChange={(e) =>
+                    setCustomerInfo({
+                      ...customerInfo,
+                      name: e.target.value,
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Email"
+                  value={customerInfo.email}
+                  onChange={(e) =>
+                    setCustomerInfo({
+                      ...customerInfo,
+                      email: e.target.value,
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Phone"
+                  value={customerInfo.phone}
+                  onChange={(e) =>
+                    setCustomerInfo({
+                      ...customerInfo,
+                      phone: e.target.value,
+                    })
+                  }
+                />
+
+                <Input
+                  placeholder="Address"
+                  value={customerInfo.address}
+                  onChange={(e) =>
+                    setCustomerInfo({
+                      ...customerInfo,
+                      address: e.target.value,
+                    })
+                  }
+                />
+              </div>
+            </Card>
+
+            <Card className="saas-glass-card p-6">
+              <h3 className="mb-4 text-xl font-semibold text-white">
+                Order Summary
+              </h3>
+
+              <div className="flex justify-between text-zinc-300">
+                <span>Subtotal</span>
+                <span>₹{calculateTotal().toFixed(2)}</span>
+              </div>
+
+              <div className="flex justify-between text-zinc-300">
+                <span>Shipping</span>
+                <span>Free</span>
+              </div>
+
+              <div className="border-t pt-3 flex justify-between">
+                <span className="text-lg font-bold text-white">Total</span>
+                <span className="text-2xl font-bold text-cyan-200">
+                  ₹{calculateTotal().toFixed(2)}
+                </span>
+              </div>
+
+              <Button
+                onClick={handleCheckout}
+                disabled={loading}
+                className="mt-6 w-full bg-cyan-500 py-6 text-lg font-semibold text-zinc-950"
+              >
+                {loading ? "Processing..." : "Proceed to Payment"}
+              </Button>
+            </Card>
+          </div>
+        </div>
+      )}
+    </UserLayout>
   );
 }
