@@ -327,7 +327,7 @@ return (
               icon: MessageSquareText,
               title: 'Need Support',
               description: 'Chat with us',
-              color: 'amber',
+              color: 'purple',
               path: '/user/chat',
               testId: 'support-card'
             }
