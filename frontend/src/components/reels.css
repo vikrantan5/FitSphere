@@ -1,0 +1,420 @@
+/* ===========================================================
+   Trending Reels Carousel – NamasteDev inspired premium UI
+   =========================================================== */
+
+.carousel-container {
+  position: relative;
+  padding: 48px 24px 40px;
+  background:
+    radial-gradient(1200px 500px at 50% -10%, rgba(249, 115, 22, 0.12), transparent 60%),
+    radial-gradient(800px 400px at 10% 120%, rgba(168, 85, 247, 0.12), transparent 60%),
+    linear-gradient(135deg, #07090f 0%, #0b1220 45%, #020617 100%);
+  color: #fff;
+  text-align: center;
+  border-radius: 28px;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.carousel-container::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 24px 24px;
+  opacity: 0.35;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.carousel-heading {
+  position: relative;
+  z-index: 2;
+  margin-bottom: 36px;
+}
+
+.heading-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  background: linear-gradient(90deg, rgba(249, 115, 22, 0.2), rgba(236, 72, 153, 0.2));
+  border: 1px solid rgba(249, 115, 22, 0.35);
+  color: #fdba74;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  backdrop-filter: blur(8px);
+}
+
+.carousel-title {
+  font-size: clamp(28px, 4vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-top: 14px;
+  background: linear-gradient(90deg, #fff 0%, #fdba74 55%, #f472b6 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.carousel-subtitle {
+  margin-top: 8px;
+  color: rgba(226, 232, 240, 0.65);
+  font-size: 14px;
+  letter-spacing: 0.01em;
+}
+
+/* ---------- Stage ---------- */
+
+.carousel {
+  position: relative;
+  height: 560px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  perspective: 1400px;
+  z-index: 1;
+}
+
+.carousel-inner {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: grab;
+}
+
+.carousel-inner:active {
+  cursor: grabbing;
+}
+
+/* ---------- Reel Card ---------- */
+
+.reel-card {
+  position: absolute;
+  width: 290px;
+  height: 500px;
+  border-radius: 24px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #0b1220;
+  box-shadow:
+    0 25px 60px -20px rgba(0, 0, 0, 0.8),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  transform-origin: center center;
+  will-change: transform, opacity, filter;
+}
+
+.reel-card.activeSlide {
+  box-shadow:
+    0 40px 80px -20px rgba(249, 115, 22, 0.35),
+    0 0 0 2px rgba(249, 115, 22, 0.45) inset,
+    0 0 80px rgba(236, 72, 153, 0.18);
+}
+
+.reel-media {
+  position: absolute;
+  inset: 0;
+}
+
+.reel-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #0b1220;
+}
+
+.reel-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+}
+
+.reel-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0) 35%,
+    rgba(0, 0, 0, 0) 55%,
+    rgba(0, 0, 0, 0.85) 100%
+  );
+  pointer-events: none;
+}
+
+/* ---------- Overlay Text ---------- */
+
+.reel-overlay {
+  position: absolute;
+  inset: 0;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: left;
+  pointer-events: none;
+}
+
+.reel-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reel-chip {
+  display: inline-block;
+  padding: 4px 10px;
+  background: rgba(255, 255, 255, 0.14);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #fff;
+}
+
+.reel-views {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  border-radius: 999px;
+  font-size: 11px;
+  color: #e2e8f0;
+}
+
+.reel-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-right: 48px;
+}
+
+.reel-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.25;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.reel-desc {
+  font-size: 12.5px;
+  color: rgba(226, 232, 240, 0.8);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6);
+}
+
+/* ---------- Actions ---------- */
+
+.reel-actions {
+  position: absolute;
+  right: 10px;
+  bottom: 76px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  z-index: 4;
+}
+
+.action-btn {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(14px);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 160ms ease, background 200ms ease, border-color 200ms ease;
+  padding: 0;
+}
+
+.action-btn span {
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  margin-top: 2px;
+  color: rgba(226, 232, 240, 0.85);
+}
+
+.action-btn:hover {
+  transform: translateY(-2px) scale(1.04);
+  background: rgba(249, 115, 22, 0.28);
+  border-color: rgba(249, 115, 22, 0.55);
+}
+
+.action-btn.liked {
+  background: rgba(239, 68, 68, 0.25);
+  border-color: rgba(239, 68, 68, 0.55);
+  color: #fecaca;
+}
+
+/* ---------- Arrows + Indicator ---------- */
+
+.arrows {
+  position: relative;
+  z-index: 3;
+  margin-top: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+}
+
+.arrow-btn {
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.95), rgba(236, 72, 153, 0.95));
+  color: #fff;
+  cursor: pointer;
+  box-shadow: 0 10px 30px -10px rgba(249, 115, 22, 0.6);
+  transition: transform 160ms ease, box-shadow 200ms ease;
+}
+
+.arrow-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 15px 40px -10px rgba(249, 115, 22, 0.8);
+}
+
+.arrow-btn:active {
+  transform: translateY(0) scale(0.98);
+}
+
+.reel-indicator {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 10px 16px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.reel-indicator .current {
+  color: #fdba74;
+  font-size: 16px;
+}
+
+.reel-indicator .divider {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.reel-indicator .total {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 13px;
+}
+
+/* ---------- Dots ---------- */
+
+.dots {
+  position: relative;
+  z-index: 3;
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(255, 255, 255, 0.25);
+  cursor: pointer;
+  transition: width 200ms ease, background 200ms ease;
+  padding: 0;
+}
+
+.dot.active {
+  width: 28px;
+  background: linear-gradient(90deg, #f97316, #ec4899);
+}
+
+/* ---------- Empty state ---------- */
+
+.reels-empty {
+  padding: 80px 20px;
+  text-align: center;
+  color: rgba(226, 232, 240, 0.7);
+  border-radius: 24px;
+  background: linear-gradient(135deg, #0b1220, #020617);
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+  .carousel {
+    height: 500px;
+  }
+  .reel-card {
+    width: 240px;
+    height: 430px;
+  }
+  .reel-card.prevSlide,
+  .reel-card.nextSlide {
+    transform: none;
+  }
+  .reel-card.farPrevSlide,
+  .reel-card.farNextSlide {
+    display: none;
+  }
+}
+
+@media (max-width: 600px) {
+  .carousel-container {
+    padding: 32px 12px 28px;
+  }
+  .carousel {
+    height: 460px;
+  }
+  .reel-card {
+    width: 220px;
+    height: 400px;
+  }
+  .reel-actions {
+    right: 8px;
+    bottom: 72px;
+  }
+  .action-btn {
+    width: 38px;
+    height: 38px;
+  }
+}

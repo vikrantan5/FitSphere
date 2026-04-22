@@ -4,13 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
 import GymLocationModal from '@/components/GymLocationModal';
+import ReelsViewer from '@/components/ReelsViewer';
 import { 
   Dumbbell, ShoppingBag, Calendar, PlayCircle, 
   Star, TrendingUp, Award, Zap, Users, ChevronRight,
   Shield, Target, Activity, Heart, MapPin
 } from 'lucide-react';
 import { UserLayout } from '@/components/user/UserLayout';
-import ReelsViewer from '@/components/ReelsViewer';
+import ReelsCarousel from '@/components/ReelsCarousel';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -53,11 +54,11 @@ export default function UserLanding() {
     try {
       const [programsRes, videosRes] = await Promise.all([
         axios.get(`${API}/programs`, { params: { limit: 4 } }),
-        axios.get(`${API}/videos/public`, { params: { limit: 4 } })
+        axios.get(`${API}/videos/public`, { params: { limit: 10 } })
       ]);
       
       setPrograms(programsRes.data.slice(0, 4));
-      setVideos(videosRes.data.slice(0, 4));
+      setVideos(videosRes.data.slice(0, 10));
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load content');
@@ -340,7 +341,7 @@ export default function UserLanding() {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-3xl font-bold text-white mb-2">Training Reels</h2>
-              <p className="text-zinc-400">Swipe through quick workout videos - Instagram style</p>
+              <p className="text-zinc-400">Trending transformations &amp; workouts — swipe, tap, get inspired</p>
             </div>
             <Button
               onClick={() => navigate('/user/videos')}
@@ -352,10 +353,15 @@ export default function UserLanding() {
             </Button>
           </div>
 
-          {/* Reels Viewer - Vertical Scroll */}
-          <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-800 border border-white/10 p-4">
-            <ReelsViewer videos={videos} autoPlay={true} />
+          {/* Trending Reels Carousel - NamasteDev-style */}
+          <div className="rounded-3xl overflow-hidden border border-white/10">
+            <ReelsCarousel videos={videos} />
           </div>
+
+          {/* Reels Viewer - Vertical Scroll */}
+          {/* <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-800 border border-white/10 p-4">
+            <ReelsViewer videos={videos} autoPlay={true} />
+          </div> */}
         </motion.section>
       )}
 

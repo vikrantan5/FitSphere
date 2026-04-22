@@ -892,6 +892,9 @@ async def get_product(product_id: str):
     
     return product
 
+
+
+@api_router.put("/products/{product_id}", response_model=Product)
 async def update_product(
     product_id: str,
     product_update: ProductUpdate,
