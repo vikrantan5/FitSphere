@@ -186,14 +186,14 @@ return (
     >
       <div className="space-y-8">
           {/* Gym Location */}
-        <motion.div
+        {/* <motion.div
           variants={fadeInUp}
           initial="initial"
           animate="animate"
           data-testid="dashboard-gym-location"
         >
           <GymLocationCard />
-        </motion.div>
+        </motion.div> */}
 
         {/* Welcome Section */}
         <motion.div
