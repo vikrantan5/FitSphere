@@ -13,7 +13,7 @@ const ReelsCarousel = ({ videos = [] }) => {
   const [current, setCurrent] = useState(0);
   const [muted, setMuted] = useState(true);
   const [likes, setLikes] = useState({});
-  const [isPausedByHover, setIsPausedByHover] = useState(false);
+//   const [isPausedByHover, setIsPausedByHover] = useState(false);
 
   const total = videos.length;
 
@@ -95,17 +95,15 @@ const ReelsCarousel = ({ videos = [] }) => {
               if (position === 'hiddenSlide') return null;
               const key = video.id || video._id || video.video_id || index;
               return (
-                <ReelCard
+                               <ReelCard
                   key={key}
                   video={video}
                   position={position}
                   isActive={index === current}
                   muted={muted}
-                  pausedByHover={isPausedByHover}
                   liked={!!likes[key]}
                   onToggleLike={() => toggleLike(key)}
                   onToggleMute={() => setMuted((m) => !m)}
-                  onHoverChange={setIsPausedByHover}
                   onClick={() => {
                     if (index !== current) {
                       setCurrent(index);

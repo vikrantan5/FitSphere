@@ -131,6 +131,56 @@
   background: #0b1220;
 }
 
+
+.reel-thumb {
+  filter: brightness(0.82);
+}
+
+.reel-big-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 74px;
+  height: 74px;
+  border-radius: 999px;
+  border: 0;
+  background: linear-gradient(135deg, rgba(249, 115, 22, 0.95), rgba(236, 72, 153, 0.95));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 6;
+  box-shadow: 0 18px 40px -10px rgba(249, 115, 22, 0.65), 0 0 0 6px rgba(255, 255, 255, 0.1);
+  transition: transform 180ms ease, box-shadow 200ms ease;
+  padding: 0;
+}
+
+.reel-big-play::after {
+  content: '';
+  position: absolute;
+  inset: -10px;
+  border-radius: 999px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  animation: reel-pulse 2.2s ease-out infinite;
+  pointer-events: none;
+}
+
+.reel-big-play:hover {
+  transform: translate(-50%, -50%) scale(1.08);
+  box-shadow: 0 22px 50px -10px rgba(249, 115, 22, 0.85), 0 0 0 8px rgba(255, 255, 255, 0.12);
+}
+
+.reel-big-play:active {
+  transform: translate(-50%, -50%) scale(0.96);
+}
+
+@keyframes reel-pulse {
+  0% { transform: scale(1); opacity: 0.9; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+
 .reel-poster {
   position: absolute;
   inset: 0;
