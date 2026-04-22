@@ -33,6 +33,15 @@ export default function LoginPage() {
   
   const [loading, setLoading] = useState(false);
 
+
+
+    const handleBack = () => {
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      navigate('/');
+    }
+  };
   const handleMemberLogin = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -88,7 +97,7 @@ export default function LoginPage() {
     <div className="min-h-screen bg-gradient-to-br from-[#0f5132] to-[#0f5132]/90 flex items-center justify-center p-4" data-testid="login-page">
       {/* Back Button */}
       <button
-        onClick={() => navigate(-1)}
+          onClick={handleBack}
         className="fixed top-6 left-6 z-50 flex items-center gap-2 text-white/80 hover:text-white transition-colors group"
         data-testid="back-button"
       >

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ChevronLeft, ChevronRight, Play, Star, Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import GymLocationCard from '@/components/GymLocationCard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -290,6 +291,9 @@ export default function LandingPage() {
 
       <footer className="bg-[#0f5132] text-white py-16 px-4 sm:px-6 lg:px-8" data-testid="footer">
         <div className="max-w-7xl mx-auto">
+          <div className="mb-12" data-testid="landing-gym-location">
+            <GymLocationCard variant="dark" />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
             <div>
               <h3 className="text-2xl mb-4" style={{fontFamily: 'Tenor Sans, serif'}}>FitSphere</h3>

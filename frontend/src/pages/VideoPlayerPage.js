@@ -43,6 +43,8 @@ export default function VideoPlayerPage() {
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
   const [comments, setComments] = useState([]);
+    const [newCommentText, setNewCommentText] = useState('');
+  const [postingComment, setPostingComment] = useState(false);
   const [relatedVideos, setRelatedVideos] = useState([]);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
@@ -172,38 +174,54 @@ export default function VideoPlayerPage() {
 
   const loadComments = async () => {
     try {
-      // Mock comments - replace with actual API call
-      setComments([
-        {
-          id: 1,
-          user: 'Sarah Johnson',
-          avatar: null,
-          comment: 'This workout completely transformed my core strength!',
-          timestamp: '2 days ago',
-          likes: 24,
-          replies: 3
-        },
-        {
-          id: 2,
-          user: 'Emily Chen',
-          avatar: null,
-          comment: 'Great explanation of form. Really helped me avoid injury.',
-          timestamp: '5 days ago',
-          likes: 18,
-          replies: 2
-        },
-        {
-          id: 3,
-          user: 'Maria Garcia',
-          avatar: null,
-          comment: 'Challenging but so rewarding! Can\'t wait for the next one.',
-          timestamp: '1 week ago',
-          likes: 15,
-          replies: 1
-        }
-      ]);
+      const token = localStorage.getItem('token');
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const res = await fetch(`${backendUrl}/api/videos/${videoId}/comments`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) throw new Error('Failed to load comments');
+      const data = await res.json();
+      setComments(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error loading comments:', error);
+      setComments([]);
+    }
+  };
+
+  const postComment = async () => {
+    const text = (newCommentText || '').trim();
+    if (!text) {
+      toast.error('Please write something first');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Please log in to comment');
+      return;
+    }
+    try {
+      setPostingComment(true);
+      const backendUrl = process.env.REACT_APP_BACKEND_URL;
+      const res = await fetch(`${backendUrl}/api/videos/${videoId}/comment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ text })
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.detail || 'Failed to post comment');
+      }
+      const created = await res.json();
+      setComments((prev) => [created, ...prev]);
+      setNewCommentText('');
+      toast.success('Comment posted');
+    } catch (e) {
+      toast.error(e.message || 'Failed to post comment');
+    } finally {
+      setPostingComment(false);
     }
   };
 
@@ -908,7 +926,7 @@ export default function VideoPlayerPage() {
                 </div>
 
                 {/* Add Comment */}
-                <div className="flex gap-3 mb-6">
+                <div className="flex gap-3 mb-6" data-testid="comment-input-container">
                   <Avatar className="w-10 h-10">
                     <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white">
                       U
@@ -918,56 +936,76 @@ export default function VideoPlayerPage() {
                     <input
                       type="text"
                       placeholder="Add a comment..."
+                      value={newCommentText}
+                      onChange={(e) => setNewCommentText(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !postingComment) {
+                          e.preventDefault();
+                          postComment();
+                        }
+                      }}
                       className="w-full bg-zinc-800 border border-white/10 rounded-lg px-4 py-2 text-zinc-300 placeholder:text-zinc-500 focus:outline-none focus:border-cyan-500"
+                      data-testid="comment-input"
                     />
                     <div className="flex justify-end gap-2 mt-2">
-                      <Button size="sm" variant="ghost" className="text-zinc-400">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-zinc-400"
+                        onClick={() => setNewCommentText('')}
+                        data-testid="comment-cancel-btn"
+                      >
                         Cancel
                       </Button>
-                      <Button size="sm" className="bg-cyan-500 text-white">
-                        Post
+                      <Button
+                        size="sm"
+                        className="bg-cyan-500 text-white"
+                        onClick={postComment}
+                        disabled={postingComment}
+                        data-testid="comment-post-btn"
+                      >
+                        {postingComment ? 'Posting...' : 'Post'}
                       </Button>
                     </div>
                   </div>
                 </div>
 
                 {/* Comments List */}
-                <div className="space-y-4">
-                  {comments.map((comment) => (
-                    <motion.div
-                      key={comment.id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex gap-3"
-                    >
-                      <Avatar className="w-8 h-8">
-                        <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white text-xs">
-                          {comment.user.charAt(0)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-semibold text-white text-sm">{comment.user}</span>
-                          <span className="text-xs text-zinc-500">{comment.timestamp}</span>
+                <div className="space-y-4" data-testid="comments-list">
+                  {comments.length === 0 && (
+                    <p className="text-sm text-zinc-500 text-center py-6">
+                      No comments yet. Be the first to share your thoughts!
+                    </p>
+                  )}
+                  {comments.map((comment) => {
+                    const displayName = comment.user_name || comment.user || 'User';
+                    const displayText = comment.text || comment.comment || '';
+                    const ts = comment.created_at
+                      ? new Date(comment.created_at).toLocaleString()
+                      : comment.timestamp || '';
+                    return (
+                      <motion.div
+                        key={comment.id}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex gap-3"
+                        data-testid={`comment-item-${comment.id}`}
+                      >
+                        <Avatar className="w-8 h-8">
+                          <AvatarFallback className="bg-gradient-to-br from-cyan-500 to-purple-500 text-white text-xs">
+                            {displayName.charAt(0).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-white text-sm">{displayName}</span>
+                            <span className="text-xs text-zinc-500">{ts}</span>
+                          </div>
+                          <p className="text-sm text-zinc-300 mb-2">{displayText}</p>
                         </div>
-                        <p className="text-sm text-zinc-300 mb-2">{comment.comment}</p>
-                        <div className="flex items-center gap-4">
-                          <button className="flex items-center gap-1 text-xs text-zinc-500 hover:text-cyan-400">
-                            <ThumbsUp className="h-3 w-3" />
-                            {comment.likes}
-                          </button>
-                          <button className="text-xs text-zinc-500 hover:text-cyan-400">
-                            Reply
-                          </button>
-                          {comment.replies > 0 && (
-                            <button className="text-xs text-cyan-400">
-                              View {comment.replies} replies
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                      </motion.div>
+                    );
+                  })}
                 </div>
               </Card>
             </motion.div>

@@ -532,3 +532,19 @@ class CartItemAdd(BaseModel):
 
 class CartItemUpdate(BaseModel):
     quantity: int
+
+
+
+# ==================== COMMENT MODELS ====================
+
+class CommentCreate(BaseModel):
+    text: str
+
+class Comment(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    video_id: str
+    user_id: str
+    user_name: str
+    text: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)

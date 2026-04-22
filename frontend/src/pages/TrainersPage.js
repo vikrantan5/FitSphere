@@ -133,10 +133,18 @@ export default function TrainersPage() {
       uploadFormData.append('image_type', 'trainer');
 
       const response = await imageAPI.upload(uploadFormData);
-      
+      const uploadedUrl =
+        response.data.cdn_url ||
+        response.data.file_url ||
+        response.data.image_url;
+
+      if (!uploadedUrl) {
+        throw new Error('Upload response missing image URL');
+      }
+
       setFormData(prev => ({
         ...prev,
-        image_url: response.data.image_url
+        image_url: uploadedUrl
       }));
       
       toast.success('Image uploaded successfully');

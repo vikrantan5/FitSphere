@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Progress } from '@/components/ui/progress';
 import { UserLayout } from '@/components/user/UserLayout';
+import GymLocationCard from '@/components/GymLocationCard';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -184,6 +185,16 @@ return (
       }
     >
       <div className="space-y-8">
+          {/* Gym Location */}
+        <motion.div
+          variants={fadeInUp}
+          initial="initial"
+          animate="animate"
+          data-testid="dashboard-gym-location"
+        >
+          <GymLocationCard />
+        </motion.div>
+
         {/* Welcome Section */}
         <motion.div
           variants={fadeInUp}

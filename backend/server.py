@@ -2816,6 +2816,117 @@ async def save_gym_settings(settings_data: GymSettingsCreate, admin: dict = Depe
         
         return {"message": "Gym settings created successfully"}
 
+
+
+
+
+
+# ==================== VIDEO COMMENTS ENDPOINTS ====================
+
+@api_router.get("/videos/{video_id}/comments", response_model=List[Comment])
+async def get_video_comments(video_id: str, skip: int = 0, limit: int = 100):
+    """Get all comments for a video (public)"""
+    comments = await db.video_comments.find(
+        {"video_id": video_id}, {"_id": 0}
+    ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+
+    for c in comments:
+        if isinstance(c.get('created_at'), str):
+            c['created_at'] = datetime.fromisoformat(c['created_at'])
+    return comments
+
+
+@api_router.post("/videos/{video_id}/comment", response_model=Comment)
+async def create_video_comment(
+    video_id: str,
+    payload: CommentCreate,
+    user: dict = Depends(get_current_user)
+):
+    """Create a new comment on a video (authenticated users only)"""
+    text = (payload.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Comment text cannot be empty")
+    if len(text) > 1000:
+        raise HTTPException(status_code=400, detail="Comment too long (max 1000 chars)")
+
+    # Validate video exists
+    video = await db.videos.find_one({"id": video_id}, {"_id": 0, "id": 1})
+    if not video:
+        raise HTTPException(status_code=404, detail="Video not found")
+
+    user_doc = await db.users.find_one(
+        {"id": user['user_id']}, {"_id": 0, "name": 1}
+    )
+    user_name = (user_doc or {}).get('name') or user.get('email') or 'User'
+
+    comment = Comment(
+        video_id=video_id,
+        user_id=user['user_id'],
+        user_name=user_name,
+        text=text
+    )
+    c_dict = comment.model_dump()
+    c_dict['created_at'] = c_dict['created_at'].isoformat()
+    await db.video_comments.insert_one(c_dict)
+    return comment
+
+
+@api_router.delete("/videos/{video_id}/comments/{comment_id}")
+async def delete_video_comment(
+    video_id: str,
+    comment_id: str,
+    user: dict = Depends(get_current_user_or_admin)
+):
+    """Delete a comment (owner or admin only)"""
+    comment = await db.video_comments.find_one(
+        {"id": comment_id, "video_id": video_id}, {"_id": 0}
+    )
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found")
+
+    is_admin = user.get('role') == 'admin'
+    owner_id = user.get('user_id') or user.get('admin_id')
+    if not is_admin and comment.get('user_id') != owner_id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this comment")
+
+    await db.video_comments.delete_one({"id": comment_id})
+    return {"message": "Comment deleted successfully"}
+
+
+# ==================== TRAINER IMAGE UPLOAD ====================
+
+@api_router.post("/trainers/upload-image", response_model=FileUploadResponse)
+async def upload_trainer_image(
+    file: UploadFile = File(...),
+    admin: dict = Depends(get_current_admin)
+):
+    """Upload trainer image to Bunny Storage and return a CDN URL."""
+    if not file.content_type or not file.content_type.startswith('image/'):
+        raise HTTPException(status_code=400, detail="File must be an image")
+
+    # Size validation (max 5MB)
+    contents = await file.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image size must be under 5MB")
+    # Reset stream for downstream upload
+    await file.seek(0)
+
+    timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
+    safe_filename = f"{timestamp}_{(file.filename or 'trainer').replace(' ', '_')}"
+    destination_path = f"trainers/{safe_filename}"
+
+    try:
+        upload_result = await upload_to_bunny_storage(file, destination_path)
+        return FileUploadResponse(
+            success=True,
+            file_name=file.filename or safe_filename,
+            file_url=upload_result['cdn_url'],
+            cdn_url=upload_result['cdn_url']
+        )
+    except Exception as e:
+        logger.error(f"Trainer image upload error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==================== BASIC ENDPOINTS ====================
 
 @api_router.get("/")
