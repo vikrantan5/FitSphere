@@ -3,12 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { motion } from 'framer-motion';
+import GymLocationModal from '@/components/GymLocationModal';
 import { 
   Dumbbell, ShoppingBag, Calendar, PlayCircle, 
   Star, TrendingUp, Award, Zap, Users, ChevronRight,
-  Shield, Target, Activity, Heart
+  Shield, Target, Activity, Heart, MapPin
 } from 'lucide-react';
 import { UserLayout } from '@/components/user/UserLayout';
+import ReelsViewer from '@/components/ReelsViewer';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -35,6 +37,7 @@ export default function UserLanding() {
   const [programs, setPrograms] = useState([]);
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showMapModal, setShowMapModal] = useState(false);
   const [stats] = useState({
     totalUsers: '10K+',
     programsCompleted: '50K+',
@@ -149,6 +152,15 @@ export default function UserLanding() {
               >
                 <Calendar className="w-5 h-5 mr-2" />
                 Explore Programs
+              </Button>
+              <Button
+                onClick={() => setShowMapModal(true)} 
+                variant="outline"
+                className="border-white/20 bg-white/5 text-white hover:bg-white/10 px-8 py-6 text-lg rounded-full"
+                data-testid="hero-map-btn"
+              >
+                <MapPin className="w-5 h-5 mr-2" />
+                View Location
               </Button>
             </motion.div>
           </div>
@@ -316,7 +328,7 @@ export default function UserLanding() {
         </motion.section>
       )}
 
-      {/* Videos Preview */}
+      {/* Training Videos - Reels Style */}
       {videos.length > 0 && (
         <motion.section
           variants={fadeInUp}
@@ -327,47 +339,22 @@ export default function UserLanding() {
         >
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-3xl font-bold text-white mb-2">Training Videos</h2>
-              <p className="text-zinc-400">Free workout content to get you started</p>
+              <h2 className="text-3xl font-bold text-white mb-2">Training Reels</h2>
+              <p className="text-zinc-400">Swipe through quick workout videos - Instagram style</p>
             </div>
             <Button
               onClick={() => navigate('/user/videos')}
               variant="outline"
               className="border-white/20 bg-white/5 text-white hover:bg-white/10"
             >
-              View All Videos
+              View Full Library
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {videos.map((video, index) => (
-              <motion.div
-                key={video.id}
-                variants={fadeInUp}
-                whileHover={{ y: -5 }}
-              >
-                <Card className="overflow-hidden bg-zinc-900 border border-white/10 hover:border-white/20 transition-all cursor-pointer" onClick={() => navigate('/user/videos')} data-testid={`video-card-${index}`}>
-                  <div className="relative h-48 bg-gradient-to-br from-purple-500/20 to-pink-500/20">
-                    {video.thumbnail_url && (
-                      <img src={video.thumbnail_url} alt={video.title} className="w-full h-full object-cover" />
-                    )}
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                        <PlayCircle className="w-8 h-8 text-white" fill="white" />
-                      </div>
-                    </div>
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-semibold text-white mb-2 line-clamp-1">{video.title}</h3>
-                    <div className="flex items-center gap-2 text-xs text-zinc-400">
-                      <span className="px-2 py-1 rounded-full bg-cyan-500/20 text-cyan-300">{video.difficulty}</span>
-                      <span>{video.duration} min</span>
-                    </div>
-                  </div>
-                </Card>
-              </motion.div>
-            ))}
+          {/* Reels Viewer - Vertical Scroll */}
+          <div className="rounded-3xl overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-800 border border-white/10 p-4">
+            <ReelsViewer videos={videos} autoPlay={true} />
           </div>
         </motion.section>
       )}
@@ -416,6 +403,9 @@ export default function UserLanding() {
           </div>
         </div>
       </motion.section>
+
+      {/* Gym Location Modal */}
+      <GymLocationModal isOpen={showMapModal} onClose={() => setShowMapModal(false)} />
     </UserLayout>
   );
 }

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Play, Star, Mail, Phone, MapPin, Instagram, 
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import GymLocationCard from '@/components/GymLocationCard';
+import GymLocationModal from '@/components/GymLocationModal';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -15,6 +16,7 @@ export default function LandingPage() {
   const [products, setProducts] = useState([]);
   const [testimonials, setTestimonials] = useState([]);
   const [currentTestimonial, setCurrentTestimonial] = useState(0);
+  const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
     fetchPrograms();
@@ -121,6 +123,14 @@ export default function LandingPage() {
               data-testid="hero-explore-btn"
             >
               Explore Programs
+            </Button>
+                   <Button 
+              onClick={() => setShowMapModal(true)} 
+              className="bg-white/20 backdrop-blur-sm border-2 border-white/50 text-white hover:bg-white hover:text-[#0f5132] rounded-full px-10 py-7 text-lg uppercase tracking-widest transition-all"
+              data-testid="hero-map-btn"
+            >
+              <MapPin className="mr-2 h-5 w-5" />
+              View Location
             </Button>
           </div>
         </div>
@@ -344,6 +354,9 @@ export default function LandingPage() {
           </div>
         </div>
       </footer>
+
+       {/* Gym Location Modal */}
+      <GymLocationModal isOpen={showMapModal} onClose={() => setShowMapModal(false)} />
     </div>
   );
 }

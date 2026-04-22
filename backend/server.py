@@ -892,7 +892,6 @@ async def get_product(product_id: str):
     
     return product
 
-@api_router.put("/products/{product_id}", response_model=Product)
 async def update_product(
     product_id: str,
     product_update: ProductUpdate,
@@ -900,20 +899,22 @@ async def update_product(
 ):
     """Update product"""
     update_data = {k: v for k, v in product_update.model_dump().items() if v is not None}
-    product = ensure_product_media(product)
+    
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
     
     update_data['updated_at'] = datetime.utcnow().isoformat()
     
-    result = await db.products.update_one({"id": product_id}, {"$set": update_data})
-    if result.matched_count == 0:
-        raise HTTPException(status_code=404, detail="Product not found")
-    
+    # Normalize image URLs if provided
     if 'image_urls' in update_data and update_data['image_urls'] is not None:
         update_data['image_urls'] = [
             url for url in (normalize_media_url(url) for url in update_data.get('image_urls', [])) if url
         ]
+    
+    result = await db.products.update_one({"id": product_id}, {"$set": update_data})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
     updated_product = await db.products.find_one({"id": product_id}, {"_id": 0})
     updated_product = ensure_product_media(updated_product)
     
